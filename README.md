@@ -1,8 +1,17 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+This is a Next.js app for Warehouse Management (Quản lý kho hàng) using Supabase.
 
 ## Getting Started
 
-First, run the development server:
+First, create `.env.local` with your Supabase keys:
+
+```
+NEXT_PUBLIC_SUPABASE_URL=https://vvfyrmokhzekpxwqdixg.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ2ZnlybW9raHpla3B4d3FkaXhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE4MzYxODgsImV4cCI6MjA3NzQxMjE4OH0.wbIvlNrhKlRmTfM4_mmUJs08jkommFT5Olf_RQVNMIo
+# server-only
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ2ZnlybW9raHpla3B4d3FkaXhnIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MTgzNjE4OCwiZXhwIjoyMDc3NDEyMTg4fQ.u4i_PMRR3S_iDk2bRtSLLQhUmf-zQZtVePksUrx5btA
+```
+
+Then run the development server:
 
 ```bash
 npm run dev
@@ -15,6 +24,8 @@ bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+Existing Supabase schema is used directly; no seed data is required.
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
