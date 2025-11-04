@@ -31,7 +31,8 @@ export default function HoaDonPage() {
     const [openForm, setOpenForm] = useState(false);
     const [editing, setEditing] = useState<HoaDonForm | null>(null);
     const [me, setMe] = useState<{ maNV: string } | null>(null);
-    const [pnOptions, setPnOptions] = useState<{ SoPN: string }[]>([]);
+    const [pnOptions, setPnOptions] = useState<{ SoPN: string; MaNCC?: string }[]>([]);
+    const [pnMap, setPnMap] = useState<Record<string, { MaNCC?: string }>>({});
     const [pxOptions, setPxOptions] = useState<{ SoPX: string }[]>([]);
     const [voucherType, setVoucherType] = useState<'PN' | 'PX' | ''>('');
 
@@ -64,9 +65,13 @@ export default function HoaDonPage() {
                 const invoices: Tables['HoaDon'][] = (hdRes?.data || []) as Tables['HoaDon'][];
                 const usedPN = new Set((invoices || []).map((x) => x.SoPN).filter(Boolean) as string[]);
                 const usedPX = new Set((invoices || []).map((x) => x.SoPX).filter(Boolean) as string[]);
-                const allPN: { SoPN: string }[] = (pnRes?.data || []).map((x: any) => ({ SoPN: x.SoPN })).filter((x: any) => x.SoPN);
+                const allPNFull: { SoPN: string; MaNCC?: string }[] = (pnRes?.data || []).map((x: any) => ({ SoPN: x.SoPN, MaNCC: x.MaNCC })).filter((x: any) => x.SoPN);
                 const allPX: { SoPX: string }[] = (pxRes?.data || []).map((x: any) => ({ SoPX: x.SoPX })).filter((x: any) => x.SoPX);
-                setPnOptions(allPN.filter((x) => !usedPN.has(x.SoPN)));
+                const filteredPN = allPNFull.filter((x) => !usedPN.has(x.SoPN));
+                setPnOptions(filteredPN);
+                const map: Record<string, { MaNCC?: string }> = {};
+                for (const it of allPNFull) map[it.SoPN] = { MaNCC: it.MaNCC };
+                setPnMap(map);
                 setPxOptions(allPX.filter((x) => !usedPX.has(x.SoPX)));
             } catch {
                 // ignore
@@ -326,7 +331,7 @@ export default function HoaDonPage() {
                                 {voucherType === 'PN' ? (
                                     <>
                                         <label className="block text-sm mb-1 text-gray-500">Mã NCC</label>
-                                        <input className="w-full bg-[#fce7ec] border border-[#f9dfe3] rounded-xl px-3 py-2" value={editing.MaNCC || ''} onChange={(e) => setEditing({ ...editing, MaNCC: e.target.value })} />
+                                        <input className="w-full bg-[#fce7ec] border border-[#f9dfe3] rounded-xl px-3 py-2" value={editing.MaNCC || ''} readOnly />
                                     </>
                                 ) : (
                                     <>
@@ -373,7 +378,8 @@ export default function HoaDonPage() {
                                 <label className="block text-sm mb-1 text-gray-500">Số PN</label>
                                 <select className="w-full bg-[#fce7ec] border border-[#f9dfe3] rounded-xl px-3 py-2" value={editing.SoPN || ''} onChange={async (e) => {
                                     const val = e.target.value;
-                                    setEditing((prev) => ({ ...(prev as any), SoPN: val, SoPX: null }));
+                                    const found = pnMap[val];
+                                    setEditing((prev) => ({ ...(prev as any), SoPN: val, SoPX: null, MaNCC: found?.MaNCC || '' }));
                                     if (val) {
                                         try {
                                             const res = await fetch(`/api/phieu-nhap/total?sopn=${encodeURIComponent(val)}`).then((r) => r.json());
@@ -381,7 +387,7 @@ export default function HoaDonPage() {
                                             setEditing((prev) => ({ ...(prev as any), TongTien: total }));
                                         } catch {}
                                     } else {
-                                        setEditing((prev) => ({ ...(prev as any), TongTien: 0 }));
+                                        setEditing((prev) => ({ ...(prev as any), TongTien: 0, MaNCC: '' }));
                                     }
                                 }}>
                                     <option value="">-- Chọn phiếu nhập --</option>

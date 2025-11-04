@@ -66,10 +66,10 @@ export default function AppShell({ children, session }: { children: React.ReactN
   return (
     <div className="flex min-h-screen">
       <Sidebar session={clientSession ?? session ?? null} />
-      <main className="flex-1 flex flex-col">
+      <main className="flex-1 flex flex-col min-w-0">
         <header className="sticky top-0 z-30 border-b border-[#f8e4d8] bg-gradient-to-r from-[#fff8f5]/95 to-[#fff3ed]/95 backdrop-blur-sm shadow-[0_1px_8px_rgba(240,180,150,0.25)]">
           <div className="h-[3px] w-full bg-gradient-to-r from-[#f09c8b] via-[#f8b9a4] to-[#ffd4bf]" />
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
+          <div className="w-full px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-[#ec928a] to-[#f5b9a6] shadow-sm flex items-center justify-center text-white font-bold">K</div>
               <div>
@@ -117,12 +117,12 @@ export default function AppShell({ children, session }: { children: React.ReactN
           </div>
         </header>
 
-        <div className="flex-1 bg-gradient-to-b from-[#fffaf8] to-[#fff3ed]">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">{children}</div>
+        <div className="flex-1 bg-gradient-to-b from-[#fffaf8] to-[#fff3ed] min-w-0">
+          <div className="w-full px-4 sm:px-6 lg:px-8 py-8">{children}</div>
         </div>
 
         <footer className="border-t border-[#f6e5db] bg-gradient-to-r from-[#fff9f6] to-[#fff5f0] py-4 shadow-inner">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 flex items-center justify-between text-xs text-[#9b8376]">
+          <div className="w-full px-4 sm:px-6 lg:px-8 flex items-center justify-between text-xs text-[#9b8376]">
             <span>© {new Date().getFullYear()} MindWarehouse Pro — All rights reserved.</span>
             <span className="text-[#b59788]">Powered by <strong>Next.js + Supabase</strong></span>
           </div>
