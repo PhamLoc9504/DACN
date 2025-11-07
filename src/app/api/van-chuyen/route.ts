@@ -11,10 +11,18 @@ function toCamel(row: any) {
 	};
 }
 
-export async function GET() {
+export async function GET(req: Request) {
 	try {
+		const { searchParams } = new URL(req.url);
+		const mahd = searchParams.get('mahd')?.trim();
 		const supabase = getServerSupabase();
-		const { data, error } = await supabase.from('dovi_vanchuyen').select('*').order('ngaygiao', { ascending: false });
+		let query = supabase.from('dovi_vanchuyen').select('*').order('ngaygiao', { ascending: false });
+		
+		if (mahd) {
+			query = query.eq('mahd', mahd);
+		}
+		
+		const { data, error } = await query;
 		if (error) throw error;
 		return NextResponse.json({ data: (data || []).map(toCamel) });
 	} catch (e: any) {

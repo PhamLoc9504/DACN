@@ -1,14 +1,24 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 export default function LoginPage() {
 	const router = useRouter();
+	const searchParams = useSearchParams();
 	const [username, setUsername] = useState('');
 	const [password, setPassword] = useState('');
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+
+	// Kiểm tra thông báo lỗi từ query params (ví dụ: ngoài giờ làm việc)
+	useEffect(() => {
+		const errorParam = searchParams.get('error');
+		const messageParam = searchParams.get('message');
+		if (errorParam === 'outside_working_hours' && messageParam) {
+			setError(messageParam);
+		}
+	}, [searchParams]);
 
 	async function handleLogin(e: React.FormEvent) {
 		e.preventDefault();
@@ -58,7 +68,15 @@ export default function LoginPage() {
 						<label className="block text-sm mb-1 text-gray-500">Mật khẩu</label>
 						<input type="password" className="w-full bg-[#fce7ec] border border-[#f9dfe3] rounded-xl px-3 py-2 text-gray-800 focus:ring-2 focus:ring-[#d47b8a] outline-none transition" value={password} onChange={(e) => setPassword(e.target.value)} required placeholder="Nhập mật khẩu..." />
 					</div>
-					{error && <p className="text-sm text-red-600 text-center">{error}</p>}
+					{error && (
+						<div className={`p-3 rounded-xl text-sm text-center ${
+							error.includes('giờ làm việc') || error.includes('hoạt động')
+								? 'bg-amber-50 border border-amber-200 text-amber-800'
+								: 'bg-red-50 border border-red-200 text-red-600'
+						}`}>
+							{error}
+						</div>
+					)}
 					<button type="submit" className="w-full bg-gradient-to-r from-[#e08d86] to-[#f3b8a8] text-white font-medium rounded-xl py-2 hover:brightness-105 transition disabled:opacity-60" disabled={loading}>
 						{loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
 					</button>

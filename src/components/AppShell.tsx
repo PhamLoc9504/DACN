@@ -122,9 +122,14 @@ export default function AppShell({ children, session }: { children: React.ReactN
         </div>
 
         <footer className="border-t border-[#f6e5db] bg-gradient-to-r from-[#fff9f6] to-[#fff5f0] py-4 shadow-inner">
-          <div className="w-full px-4 sm:px-6 lg:px-8 flex items-center justify-between text-xs text-[#9b8376]">
-            <span>© {new Date().getFullYear()} MindWarehouse Pro — All rights reserved.</span>
-            <span className="text-[#b59788]">Powered by <strong>Next.js + Supabase</strong></span>
+          <div className="w-full px-4 sm:px-6 lg:px-8">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[#9b8376]">
+              <div className="flex flex-wrap items-center gap-4 justify-center">
+                <span>© {new Date().getFullYear()} MindWarehouse Pro — All rights reserved.</span>
+                <span className="hidden sm:inline">|</span>
+              </div>
+              <span className="text-[#b59788]">Powered by <strong>Next.js + Supabase</strong></span>
+            </div>
           </div>
         </footer>
       </main>

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logAuth } from '@/lib/auditLog';
 
 function redirectToLogin(req: Request) {
 	const url = new URL('/login', req.url);
@@ -8,10 +9,12 @@ function redirectToLogin(req: Request) {
 }
 
 export async function GET(req: Request) {
+	await logAuth('DANG_XUAT', true);
 	return redirectToLogin(req);
 }
 
 export async function POST(req: Request) {
+	await logAuth('DANG_XUAT', true);
 	return redirectToLogin(req);
 }
 

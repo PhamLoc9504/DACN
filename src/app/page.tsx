@@ -190,8 +190,8 @@ export default function Home() {
               </select>
             </div>
           </div>
-          <div className="h-60">
-            <ResponsiveContainer width="100%" height="100%" className="w-full" minWidth={0}>
+          <div className="h-60 w-full min-w-0">
+            <ResponsiveContainer width="100%" height={240} minWidth={0}>
               <LineChart data={revView === 'month' ? revenueData : revView === 'day' ? dailyRevenue : yearlyRevenue}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
                 <XAxis dataKey={revView === 'month' ? 'month' : revView === 'day' ? 'day' : 'year'} stroke="#94A3B8" />
@@ -258,8 +258,8 @@ export default function Home() {
             <div className="font-semibold text-slate-800">📈 Dòng tiền nhập / xuất (6 tháng)</div>
             <div className="text-xs text-slate-500">Theo hóa đơn đã thanh toán</div>
           </div>
-          <div className="h-60">
-            <ResponsiveContainer width="100%" height="100%" className="w-full" minWidth={0}>
+          <div className="h-60 w-full min-w-0">
+            <ResponsiveContainer width="100%" height={240} minWidth={0}>
               <LineChart data={flowData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
                 <XAxis dataKey="month" stroke="#94A3B8" />
@@ -274,8 +274,8 @@ export default function Home() {
         </div>
         <div className="rounded-2xl border bg-white p-5 shadow-sm min-w-0">
           <div className="font-semibold text-slate-800">🧮 Tỷ trọng Doanh thu vs Chi phí</div>
-          <div className="h-60">
-            <ResponsiveContainer width="100%" height="100%" className="w-full" minWidth={0}>
+          <div className="h-60 w-full min-w-0">
+            <ResponsiveContainer width="100%" height={240} minWidth={0}>
               <PieChart>
                 <Pie data={revPie} dataKey="value" nameKey="name" outerRadius={90} innerRadius={60} paddingAngle={3}>
                   {revPie.map((_, i) => (
@@ -327,8 +327,8 @@ export default function Home() {
         </div>
         <div className="rounded-2xl border bg-white p-5 shadow-sm min-w-0">
           <div className="font-semibold text-slate-800">👥 Khách hàng theo khu vực</div>
-          <div className="h-60">
-            <ResponsiveContainer width="100%" height="100%" className="w-full" minWidth={0}>
+          <div className="h-60 w-full min-w-0">
+            <ResponsiveContainer width="100%" height={240} minWidth={0}>
               <PieChart>
                 <Pie data={custGroup} dataKey="value" nameKey="name" outerRadius={90} innerRadius={60} paddingAngle={3}>
                   {custGroup.map((_, i) => (

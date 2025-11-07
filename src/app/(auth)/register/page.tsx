@@ -12,11 +12,16 @@ export default function RegisterPage() {
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [okMsg, setOkMsg] = useState<string | null>(null);
+	const [agreedToTerms, setAgreedToTerms] = useState(false);
 
 	async function handleRegister(e: React.FormEvent) {
 		e.preventDefault();
 		setError(null);
 		setOkMsg(null);
+		if (!agreedToTerms) {
+			setError('Vui lòng đồng ý với Điều khoản Sử dụng và Chính sách Bảo mật');
+			return;
+		}
 		if (password !== confirm) {
 			setError('Mật khẩu nhập lại không khớp');
 			return;
@@ -67,9 +72,21 @@ export default function RegisterPage() {
 						<label className="block text-sm mb-1 text-gray-500">Nhập lại mật khẩu</label>
 						<input type="password" className="w-full bg-[#fce7ec] border border-[#f9dfe3] rounded-xl px-3 py-2" value={confirm} onChange={(e) => setConfirm(e.target.value)} required />
 					</div>
+					<div className="flex items-start gap-2">
+						<input
+							type="checkbox"
+							id="agree-terms"
+							checked={agreedToTerms}
+							onChange={(e) => setAgreedToTerms(e.target.checked)}
+							className="mt-1"
+						/>
+						<label htmlFor="agree-terms" className="text-sm text-gray-600">
+							Tôi đồng ý với các điều khoản sử dụng
+						</label>
+					</div>
 					{error && <p className="text-sm text-red-600 text-center">{error}</p>}
 					{okMsg && <p className="text-sm text-green-600 text-center">{okMsg}</p>}
-					<button type="submit" className="w-full bg-gradient-to-r from-[#e08d86] to-[#f3b8a8] text-white font-medium rounded-xl py-2 hover:brightness-105 transition disabled:opacity-60" disabled={loading}>
+					<button type="submit" className="w-full bg-gradient-to-r from-[#e08d86] to-[#f3b8a8] text-white font-medium rounded-xl py-2 hover:brightness-105 transition disabled:opacity-60" disabled={loading || !agreedToTerms}>
 						{loading ? 'Đang xử lý...' : 'Đăng ký'}
 					</button>
 				</form>

@@ -11,7 +11,8 @@ const items = [
 	{ href: '/nhap-hang', label: '📥 Nhập hàng' },
 	{ href: '/xuat-hang', label: '📤 Xuất hàng' },
 	{ href: '/hoa-don', label: '🧾 Hóa đơn' },
-	{ href: '/khach-hang', label: '👥 Khách hàng' },
+	{ href: '/cham-soc-khach-hang', label: '💎 Chăm sóc khách hàng' },
+	{ href: '/kiem-ke-kho', label: '📋 Kiểm kê kho' },
 	{ href: '/nha-cung-cap', label: '🏭 Nhà cung cấp' },
 	{ href: '/nhan-vien', label: '👔 Nhân viên' },
 	{ href: '/bao-cao', label: '📈 Báo cáo' },
@@ -55,6 +56,77 @@ export default function Sidebar({ session }: { session?: AppSession | null }) {
 						</Link>
 					);
 				})}
+
+				{/* Quản lý hệ thống - chỉ hiển thị cho Admin và Quản lý */}
+				{(session?.vaiTro === 'Admin' || session?.vaiTro === 'Quản lý') && (
+					<>
+						<div className="pt-4 mt-2 border-t border-[#eadbcb]">
+							<div className="px-3.5 py-2 text-xs font-semibold text-[#c9a69d] uppercase tracking-wider">
+								⚙️ Quản lý hệ thống
+							</div>
+						</div>
+						<Link
+							href="/quan-ly-tai-khoan"
+							className={cn(
+								'group relative flex items-center gap-2 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all duration-200 border',
+								pathname === '/quan-ly-tai-khoan'
+									? 'bg-[#fde7e2] text-[#d46b6b] shadow-sm border-[#efc9c2] ring-1 ring-[#f7ddd6]'
+									: 'text-[#7b6a60] hover:text-[#d46b6b] hover:bg-[#fff0ee] border-transparent hover:border-[#f3ddd6] hover:shadow-sm'
+							)}
+						>
+							{pathname === '/quan-ly-tai-khoan' && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 rounded-r bg-[#e28c8c] shadow-[0_0_0_1px_rgba(226,140,140,0.25)]" />}
+							<span>🔐 Quản lý tài khoản</span>
+							{pathname === '/quan-ly-tai-khoan' && (
+								<span className="ml-auto h-2 w-2 rounded-full bg-[#e28c8c] shadow-inner animate-pulse" />
+							)}
+						</Link>
+						<Link
+							href="/nhat-ky"
+							className={cn(
+								'group relative flex items-center gap-2 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all duration-200 border',
+								pathname === '/nhat-ky'
+									? 'bg-[#fde7e2] text-[#d46b6b] shadow-sm border-[#efc9c2] ring-1 ring-[#f7ddd6]'
+									: 'text-[#7b6a60] hover:text-[#d46b6b] hover:bg-[#fff0ee] border-transparent hover:border-[#f3ddd6] hover:shadow-sm'
+							)}
+						>
+							{pathname === '/nhat-ky' && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 rounded-r bg-[#e28c8c] shadow-[0_0_0_1px_rgba(226,140,140,0.25)]" />}
+							<span>📋 Nhật ký</span>
+							{pathname === '/nhat-ky' && (
+								<span className="ml-auto h-2 w-2 rounded-full bg-[#e28c8c] shadow-inner animate-pulse" />
+							)}
+						</Link>
+						<Link
+							href="/giam-sat-he-thong"
+							className={cn(
+								'group relative flex items-center gap-2 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all duration-200 border',
+								pathname === '/giam-sat-he-thong'
+									? 'bg-[#fde7e2] text-[#d46b6b] shadow-sm border-[#efc9c2] ring-1 ring-[#f7ddd6]'
+									: 'text-[#7b6a60] hover:text-[#d46b6b] hover:bg-[#fff0ee] border-transparent hover:border-[#f3ddd6] hover:shadow-sm'
+							)}
+						>
+							{pathname === '/giam-sat-he-thong' && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 rounded-r bg-[#e28c8c] shadow-[0_0_0_1px_rgba(226,140,140,0.25)]" />}
+							<span>📊 Giám sát hệ thống</span>
+							{pathname === '/giam-sat-he-thong' && (
+								<span className="ml-auto h-2 w-2 rounded-full bg-[#e28c8c] shadow-inner animate-pulse" />
+							)}
+						</Link>
+						<Link
+							href="/cau-hinh-he-thong"
+							className={cn(
+								'group relative flex items-center gap-2 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all duration-200 border',
+								pathname === '/cau-hinh-he-thong'
+									? 'bg-[#fde7e2] text-[#d46b6b] shadow-sm border-[#efc9c2] ring-1 ring-[#f7ddd6]'
+									: 'text-[#7b6a60] hover:text-[#d46b6b] hover:bg-[#fff0ee] border-transparent hover:border-[#f3ddd6] hover:shadow-sm'
+							)}
+						>
+							{pathname === '/cau-hinh-he-thong' && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 rounded-r bg-[#e28c8c] shadow-[0_0_0_1px_rgba(226,140,140,0.25)]" />}
+							<span>⚙️ Cấu hình hệ thống</span>
+							{pathname === '/cau-hinh-he-thong' && (
+								<span className="ml-auto h-2 w-2 rounded-full bg-[#e28c8c] shadow-inner animate-pulse" />
+							)}
+						</Link>
+					</>
+				)}
 
 				{/* Footer / Login or Role */}
 				<div className="pt-4 mt-4 border-t border-[#eadbcb]">
