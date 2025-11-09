@@ -18,12 +18,14 @@ export function decodeSession(value: string | undefined | null): AppSession | nu
 	}
 }
 
-export function setSessionCookie(session: AppSession) {
-	cookies().set(COOKIE_NAME, encodeSession(session), { path: '/', maxAge: 60 * 60 * 24 * 7 });
+export async function setSessionCookie(session: AppSession) {
+	const cookieStore = await cookies();
+	cookieStore.set(COOKIE_NAME, encodeSession(session), { path: '/', maxAge: 60 * 60 * 24 * 7 });
 }
 
-export function clearSessionCookie() {
-	cookies().set(COOKIE_NAME, '', { path: '/', maxAge: 0 });
+export async function clearSessionCookie() {
+	const cookieStore = await cookies();
+	cookieStore.set(COOKIE_NAME, '', { path: '/', maxAge: 0 });
 }
 
 export async function getSessionFromCookies(): Promise<AppSession | null> {

@@ -17,8 +17,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Kho Hàng - Quản lý kho chuyên nghiệp",
-  description: "Hệ thống quản lý kho hàng hiện đại tích hợp Supabase.",
+  title: "He thong quan ly kho hang",
+  description: "He thong quan ly kho hang.",
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {

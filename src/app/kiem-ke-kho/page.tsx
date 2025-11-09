@@ -307,7 +307,11 @@ export default function KiemKeKhoPage() {
 
 							{!loading &&
 								filtered.map((kk) => (
-									<tr key={kk.id} className="border-b border-[#f5ebe0] hover:bg-[#fce7ec]/40 transition">
+									<tr 
+										key={kk.id} 
+										className="border-b border-[#f5ebe0] hover:bg-[#fce7ec]/40 transition cursor-pointer"
+										onClick={() => openDetail(kk)}
+									>
 										<td className="py-3 px-4 font-medium">{kk.maKK}</td>
 										<td className="py-3 px-4">{new Date(kk.ngayKiemKe).toLocaleDateString('vi-VN')}</td>
 										<td className="py-3 px-4">{kk.nguoiKiemKe}</td>
@@ -317,15 +321,8 @@ export default function KiemKeKhoPage() {
 												{getTrangThaiLabel(kk.trangThai)}
 											</span>
 										</td>
-										<td className="py-3 px-4">
+										<td className="py-3 px-4" onClick={(e) => e.stopPropagation()}>
 											<div className="flex gap-2 justify-center">
-												<button
-													onClick={() => openDetail(kk)}
-													className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition"
-												>
-													<Eye className="w-3 h-3 inline mr-1" />
-													Xem
-												</button>
 												<button
 													onClick={() => openChiTiet(kk)}
 													className="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded hover:bg-purple-200 transition"
@@ -523,42 +520,128 @@ export default function KiemKeKhoPage() {
 				</div>
 			</Modal>
 
-			{/* Modal: Detail */}
-			<Modal open={openDetailModal} onClose={() => setOpenDetailModal(false)} title={`Chi tiết phiếu kiểm kê ${selectedKK?.maKK}`}>
+			{/* Modal: Detail - Design đẹp hơn với chi tiết */}
+			<Modal open={openDetailModal} onClose={() => setOpenDetailModal(false)} title="">
 				{selectedKK && (
-					<div className="space-y-4">
-						<div className="grid grid-cols-2 gap-4 text-sm">
-							<div>
-								<span className="text-gray-500">Mã KK:</span>
-								<span className="ml-2 font-medium">{selectedKK.maKK}</span>
-							</div>
-							<div>
-								<span className="text-gray-500">Ngày kiểm kê:</span>
-								<span className="ml-2">{new Date(selectedKK.ngayKiemKe).toLocaleDateString('vi-VN')}</span>
-							</div>
-							<div>
-								<span className="text-gray-500">Người kiểm kê:</span>
-								<span className="ml-2 font-medium">{selectedKK.nguoiKiemKe}</span>
-							</div>
-							<div>
-								<span className="text-gray-500">Trạng thái:</span>
-								<span className={`ml-2 px-2 py-1 text-xs rounded font-medium ${getTrangThaiColor(selectedKK.trangThai)}`}>
-									{getTrangThaiLabel(selectedKK.trangThai)}
-								</span>
-							</div>
-							<div className="col-span-2">
-								<span className="text-gray-500">Ghi chú:</span>
-								<span className="ml-2">{selectedKK.ghiChu || '-'}</span>
-							</div>
-							<div className="col-span-2">
-								<span className="text-gray-500">Số lượng sản phẩm:</span>
-								<span className="ml-2 font-medium">{selectedKK.chiTiet?.length || 0}</span>
+					<div className="space-y-6">
+						{/* Header với gradient */}
+						<div className="bg-gradient-to-r from-amber-600 via-orange-600 to-red-600 text-white p-6 rounded-xl -mt-6 -mx-6 mb-4">
+							<div className="flex items-center justify-between">
+								<div>
+									<h2 className="text-2xl font-bold mb-1">Chi tiết phiếu kiểm kê</h2>
+									<p className="text-amber-100 text-sm">Inventory Check Details</p>
+								</div>
+								<div className="text-right">
+									<div className="text-sm text-amber-100 mb-1">Mã phiếu</div>
+									<div className="text-3xl font-bold">{selectedKK.maKK}</div>
+								</div>
 							</div>
 						</div>
-						<div className="flex justify-end gap-2 pt-2">
+
+						{/* Thông tin phiếu */}
+						<div className="grid md:grid-cols-2 gap-4">
+							<div className="bg-gradient-to-br from-amber-50 to-orange-50 p-5 rounded-xl border border-amber-100">
+								<div className="flex items-center gap-2 mb-3">
+									<div className="w-2 h-2 bg-amber-600 rounded-full"></div>
+									<h3 className="font-semibold text-gray-800">Thông tin cơ bản</h3>
+								</div>
+								<div className="space-y-3 text-sm">
+									<div className="flex justify-between">
+										<span className="text-gray-600">Ngày kiểm kê:</span>
+										<span className="font-medium text-gray-900">{new Date(selectedKK.ngayKiemKe).toLocaleDateString('vi-VN')}</span>
+									</div>
+									<div className="flex justify-between">
+										<span className="text-gray-600">Người kiểm kê:</span>
+										<span className="font-medium text-gray-900">{selectedKK.nguoiKiemKe}</span>
+									</div>
+								</div>
+							</div>
+
+							<div className="bg-gradient-to-br from-red-50 to-pink-50 p-5 rounded-xl border border-red-100">
+								<div className="flex items-center gap-2 mb-3">
+									<div className="w-2 h-2 bg-red-600 rounded-full"></div>
+									<h3 className="font-semibold text-gray-800">Trạng thái</h3>
+								</div>
+								<div className="space-y-3 text-sm">
+									<div className="flex justify-between items-center">
+										<span className="text-gray-600">Trạng thái:</span>
+										<span className={`px-3 py-1 text-xs rounded-full font-semibold ${getTrangThaiColor(selectedKK.trangThai)}`}>
+											{getTrangThaiLabel(selectedKK.trangThai)}
+										</span>
+									</div>
+									<div className="flex justify-between">
+										<span className="text-gray-600">Số sản phẩm:</span>
+										<span className="font-bold text-gray-900">{selectedKK.chiTiet?.length || 0}</span>
+									</div>
+								</div>
+							</div>
+						</div>
+
+						{/* Ghi chú */}
+						{selectedKK.ghiChu && (
+							<div className="bg-blue-50 border border-blue-100 p-4 rounded-xl">
+								<div className="text-sm font-semibold text-gray-700 mb-2">📝 Ghi chú:</div>
+								<p className="text-sm text-gray-600">{selectedKK.ghiChu}</p>
+							</div>
+						)}
+
+						{/* Chi tiết kiểm kê */}
+						{selectedKK.chiTiet && selectedKK.chiTiet.length > 0 ? (
+							<div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+								<div className="bg-gradient-to-r from-gray-50 to-gray-100 px-4 py-3 border-b border-gray-200">
+									<h3 className="font-semibold text-gray-800 flex items-center gap-2">
+										📋 Chi tiết kiểm kê ({selectedKK.chiTiet.length} sản phẩm)
+									</h3>
+								</div>
+								<div className="overflow-x-auto">
+									<table className="w-full">
+										<thead>
+											<tr className="bg-gray-50 border-b border-gray-200">
+												<th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">STT</th>
+												<th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Mã HH</th>
+												<th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Tên hàng</th>
+												<th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase">Sổ sách</th>
+												<th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase">Thực tế</th>
+												<th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase">Chênh lệch</th>
+												<th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Lý do</th>
+											</tr>
+										</thead>
+										<tbody>
+											{selectedKK.chiTiet.map((ct, i) => (
+												<tr key={i} className="border-b border-gray-100 hover:bg-gray-50 transition">
+													<td className="px-4 py-3 text-sm text-gray-600">{i + 1}</td>
+													<td className="px-4 py-3 text-sm font-medium text-gray-900">{ct.mahh}</td>
+													<td className="px-4 py-3 text-sm text-gray-700">{ct.tenhh}</td>
+													<td className="px-4 py-3 text-sm text-right text-gray-600">{ct.soLuongSach}</td>
+													<td className="px-4 py-3 text-sm text-right text-gray-700">{ct.soLuongThucTe}</td>
+													<td className={`px-4 py-3 text-sm text-right font-semibold ${
+														ct.chenhLech > 0 ? 'text-green-600' : ct.chenhLech < 0 ? 'text-red-600' : 'text-gray-600'
+													}`}>
+														{ct.chenhLech > 0 ? '+' : ''}{ct.chenhLech}
+													</td>
+													<td className="px-4 py-3 text-sm text-gray-600">{ct.lyDo || '-'}</td>
+												</tr>
+											))}
+										</tbody>
+									</table>
+								</div>
+							</div>
+						) : (
+							<div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 text-center">
+								<p className="text-yellow-800 font-medium">Chưa có chi tiết kiểm kê</p>
+							</div>
+						)}
+
+						{/* Actions */}
+						<div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
 							<Button variant="secondary" onClick={() => setOpenDetailModal(false)}>
 								Đóng
 							</Button>
+							{selectedKK.trangThai === 'dang-tien-hanh' && (
+								<Button onClick={() => { setOpenDetailModal(false); openEdit(selectedKK); }}>
+									✏️ Sửa
+								</Button>
+							)}
 						</div>
 					</div>
 				)}

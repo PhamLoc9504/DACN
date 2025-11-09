@@ -19,6 +19,8 @@ type HoaDonForm = {
     SoPX?: string | null;
     SoPN?: string | null;
     MaNV?: string | null;
+    HinhThucGiao?: 'Giao hàng' | 'Tại quầy';
+    PhuongThucTT?: 'Tiền mặt' | 'Chuyển khoản' | 'VNPay' | 'MoMo' | 'ZaloPay' | 'COD';
 };
 
 type PhuongThucThanhToan = 'chuyen-khoan' | 'tien-mat' | 'quet-qr';
@@ -149,7 +151,16 @@ export default function HoaDonPage() {
     }
 
     function openCreate() {
-        setEditing({ NgayLap: new Date().toISOString().slice(0, 10), MaKH: '', MaNCC: '', TongTien: 0, TrangThai: 'Chưa thanh toán', MaNV: me?.maNV || '' });
+        setEditing({ 
+            NgayLap: new Date().toISOString().slice(0, 10), 
+            MaKH: '', 
+            MaNCC: '', 
+            TongTien: 0, 
+            TrangThai: 'Chưa thanh toán', 
+            MaNV: me?.maNV || '',
+            HinhThucGiao: 'Giao hàng',
+            PhuongThucTT: 'Tiền mặt'
+        });
         setVoucherType('');
         setOpenForm(true);
     }
@@ -164,7 +175,10 @@ export default function HoaDonPage() {
             SoPX: row.SoPX || null,
             SoPN: row.SoPN || null,
             MaNV: row.MaNV || null,
+            HinhThucGiao: (row.HinhThucGiao as 'Giao hàng' | 'Tại quầy') || 'Giao hàng',
+            PhuongThucTT: (row.PhuongThucTT as any) || 'Tiền mặt',
         });
+        setVoucherType(row.SoPN ? 'PN' : row.SoPX ? 'PX' : '');
         setOpenForm(true);
     }
 
@@ -277,14 +291,20 @@ export default function HoaDonPage() {
 
 	async function openDetail(mahd: string) {
 		try {
-			const res = await fetch(`/api/hoa-don?id=${mahd}`, {
-				credentials: 'include',
-			}).then((r) => r.json());
-			if (res.error) {
-				alert(res.error);
+			const [hdRes, ctRes] = await Promise.all([
+				fetch(`/api/hoa-don?id=${mahd}`, {
+					credentials: 'include',
+				}).then((r) => r.json()),
+				fetch(`/api/hoa-don/${mahd}/chi-tiet`, {
+					credentials: 'include',
+				}).then((r) => r.json()).catch(() => ({ data: [] })),
+			]);
+			if (hdRes.error) {
+				alert(hdRes.error);
 				return;
 			}
-			setSelectedHD(res.data);
+			setSelectedHD(hdRes.data);
+			setInvoiceItems(ctRes.data || []);
 			setOpenDetailModal(true);
 		} catch (err: any) {
 			alert(err.message || 'Có lỗi xảy ra');
@@ -661,17 +681,6 @@ export default function HoaDonPage() {
 														/>
 														<div className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-20">
 															<div className="py-1">
-																{/* Xem chi tiết - luôn có */}
-																<button
-																	onClick={() => {
-																		setOpenMenuId(null);
-																		openDetail(r.MaHD);
-																	}}
-																	className="w-full text-left px-4 py-2 text-xs hover:bg-gray-100 flex items-center gap-2"
-																>
-																	<Eye className="w-3.5 h-3.5" />
-																	Xem chi tiết
-																</button>
 
 																{/* Sửa - chỉ khi chưa thanh toán hoặc Admin/Quản lý */}
 																{(r.TrangThai !== 'Đã thanh toán' || me?.vaiTro === 'Admin' || me?.vaiTro === 'Quản lý') && (
@@ -796,6 +805,53 @@ export default function HoaDonPage() {
                                 <input className="w-full bg-[#fce7ec] border border-[#f9dfe3] rounded-xl px-3 py-2" value={editing.MaNV || me?.maNV || ''} readOnly />
                             </div>
                         </div>
+                        {voucherType !== 'PN' && (
+                            <>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-sm mb-1 text-gray-500">Hình thức giao hàng *</label>
+                                        <select
+                                            className="w-full bg-[#fce7ec] border border-[#f9dfe3] rounded-xl px-3 py-2"
+                                            value={editing.HinhThucGiao || 'Giao hàng'}
+                                            onChange={(e) => setEditing({ ...editing, HinhThucGiao: e.target.value as 'Giao hàng' | 'Tại quầy' })}
+                                        >
+                                            <option value="Giao hàng">🚚 Giao hàng</option>
+                                            <option value="Tại quầy">🏪 Tại quầy</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm mb-1 text-gray-500">Phương thức thanh toán *</label>
+                                        <select
+                                            className="w-full bg-[#fce7ec] border border-[#f9dfe3] rounded-xl px-3 py-2"
+                                            value={editing.PhuongThucTT || 'Tiền mặt'}
+                                            onChange={(e) => setEditing({ ...editing, PhuongThucTT: e.target.value as any })}
+                                        >
+                                            <option value="Tiền mặt">💵 Tiền mặt</option>
+                                            <option value="COD">📦 COD (Thanh toán khi nhận hàng)</option>
+                                            <option value="Chuyển khoản">🏦 Chuyển khoản</option>
+                                            <option value="VNPay">💳 VNPay</option>
+                                            <option value="MoMo">📱 MoMo</option>
+                                            <option value="ZaloPay">💸 ZaloPay</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                {editing.HinhThucGiao === 'Tại quầy' && (
+                                    <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg text-sm text-blue-800">
+                                        ℹ️ Khách hàng sẽ nhận hàng trực tiếp tại quầy, không tạo đơn vận chuyển.
+                                    </div>
+                                )}
+                                {editing.HinhThucGiao === 'Giao hàng' && editing.PhuongThucTT === 'COD' && (
+                                    <div className="bg-yellow-50 border border-yellow-200 p-3 rounded-lg text-sm text-yellow-800">
+                                        📦 Đơn vận chuyển sẽ được tạo tự động khi hóa đơn được tạo (COD).
+                                    </div>
+                                )}
+                                {editing.HinhThucGiao === 'Giao hàng' && editing.PhuongThucTT && ['Chuyển khoản', 'VNPay', 'MoMo', 'ZaloPay'].includes(editing.PhuongThucTT) && (
+                                    <div className="bg-green-50 border border-green-200 p-3 rounded-lg text-sm text-green-800">
+                                        ✅ Đơn vận chuyển sẽ được tạo tự động sau khi thanh toán thành công.
+                                    </div>
+                                )}
+                            </>
+                        )}
                         <div>
                             <label className="block text-sm mb-1 text-gray-500">Chọn loại phiếu</label>
                             <div className="flex gap-4">
@@ -1184,57 +1240,141 @@ export default function HoaDonPage() {
 				)}
 			</Modal>
 
-			{/* Modal: Chi tiết hóa đơn */}
-			<Modal open={openDetailModal} onClose={() => setOpenDetailModal(false)} title={`Chi tiết hóa đơn ${selectedHD?.MaHD}`}>
+			{/* Modal: Chi tiết hóa đơn - Design đẹp hơn */}
+			<Modal open={openDetailModal} onClose={() => { setOpenDetailModal(false); setInvoiceItems([]); }} title="">
 				{selectedHD && (
-					<div className="space-y-4">
-						<div className="grid grid-cols-2 gap-4 text-sm">
-							<div>
-								<span className="text-gray-500">Mã HD:</span>
-								<span className="ml-2 font-medium">{selectedHD.MaHD}</span>
-							</div>
-							<div>
-								<span className="text-gray-500">Ngày lập:</span>
-								<span className="ml-2">{selectedHD.NgayLap ? new Date(selectedHD.NgayLap).toLocaleDateString('vi-VN') : '-'}</span>
-							</div>
-							<div>
-								<span className="text-gray-500">Mã KH:</span>
-								<span className="ml-2">{selectedHD.MaKH || '-'}</span>
-							</div>
-							<div>
-								<span className="text-gray-500">Mã NV:</span>
-								<span className="ml-2">{selectedHD.MaNV || '-'}</span>
-							</div>
-							<div>
-								<span className="text-gray-500">Số PX:</span>
-								<span className="ml-2">{selectedHD.SoPX || '-'}</span>
-							</div>
-							<div>
-								<span className="text-gray-500">Số PN:</span>
-								<span className="ml-2">{selectedHD.SoPN || '-'}</span>
-							</div>
-							<div className="col-span-2">
-								<span className="text-gray-500">Tổng tiền:</span>
-								<span className="ml-2 font-bold text-lg text-[#d47b8a]">{Number(selectedHD.TongTien || 0).toLocaleString('vi-VN')} ₫</span>
-							</div>
-							<div className="col-span-2">
-								<span className="text-gray-500">Trạng thái:</span>
-								<span
-									className={`ml-2 font-medium ${
-										selectedHD.TrangThai === 'Đã thanh toán'
-											? 'text-green-600'
-											: selectedHD.TrangThai === 'Chưa thanh toán'
-											? 'text-red-500'
-											: 'text-yellow-600'
-									}`}
-								>
-									{selectedHD.TrangThai}
-								</span>
+					<div className="space-y-6">
+						{/* Header với gradient */}
+						<div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white p-6 rounded-xl -mt-6 -mx-6 mb-4">
+							<div className="flex items-center justify-between">
+								<div>
+									<h2 className="text-2xl font-bold mb-1">Chi tiết hóa đơn</h2>
+									<p className="text-indigo-100 text-sm">Invoice Details</p>
+								</div>
+								<div className="text-right">
+									<div className="text-sm text-indigo-100 mb-1">Mã hóa đơn</div>
+									<div className="text-3xl font-bold">{selectedHD.MaHD}</div>
+								</div>
 							</div>
 						</div>
-						<div className="flex justify-end gap-2 pt-2">
-							<Button variant="secondary" onClick={() => setOpenDetailModal(false)}>
+
+						{/* Thông tin chính */}
+						<div className="grid md:grid-cols-2 gap-4">
+							<div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 rounded-xl border border-blue-100">
+								<div className="flex items-center gap-2 mb-3">
+									<div className="w-2 h-2 bg-indigo-600 rounded-full"></div>
+									<h3 className="font-semibold text-gray-800">Thông tin cơ bản</h3>
+								</div>
+								<div className="space-y-2 text-sm">
+									<div className="flex justify-between">
+										<span className="text-gray-600">Ngày lập:</span>
+										<span className="font-medium text-gray-900">{selectedHD.NgayLap ? new Date(selectedHD.NgayLap).toLocaleDateString('vi-VN') : '-'}</span>
+									</div>
+									<div className="flex justify-between">
+										<span className="text-gray-600">Mã KH:</span>
+										<span className="font-medium text-gray-900">{selectedHD.MaKH || '-'}</span>
+									</div>
+									<div className="flex justify-between">
+										<span className="text-gray-600">Mã NV:</span>
+										<span className="font-medium text-gray-900">{selectedHD.MaNV || '-'}</span>
+									</div>
+								</div>
+							</div>
+
+							<div className="bg-gradient-to-br from-pink-50 to-rose-50 p-4 rounded-xl border border-pink-100">
+								<div className="flex items-center gap-2 mb-3">
+									<div className="w-2 h-2 bg-pink-600 rounded-full"></div>
+									<h3 className="font-semibold text-gray-800">Thông tin phiếu</h3>
+								</div>
+								<div className="space-y-2 text-sm">
+									<div className="flex justify-between">
+										<span className="text-gray-600">Số PX:</span>
+										<span className="font-medium text-gray-900">{selectedHD.SoPX || '-'}</span>
+									</div>
+									<div className="flex justify-between">
+										<span className="text-gray-600">Số PN:</span>
+										<span className="font-medium text-gray-900">{selectedHD.SoPN || '-'}</span>
+									</div>
+									<div className="flex justify-between items-center pt-2 border-t border-pink-200">
+										<span className="text-gray-600 font-medium">Trạng thái:</span>
+										<span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+											selectedHD.TrangThai === 'Đã thanh toán'
+												? 'bg-green-100 text-green-700'
+												: selectedHD.TrangThai === 'Chưa thanh toán'
+												? 'bg-red-100 text-red-700'
+												: 'bg-yellow-100 text-yellow-700'
+										}`}>
+											{selectedHD.TrangThai}
+										</span>
+									</div>
+								</div>
+							</div>
+						</div>
+
+						{/* Chi tiết hàng hóa */}
+						{invoiceItems.length > 0 ? (
+							<div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+								<div className="bg-gradient-to-r from-gray-50 to-gray-100 px-4 py-3 border-b border-gray-200">
+									<h3 className="font-semibold text-gray-800 flex items-center gap-2">
+										<FileText className="w-4 h-4 text-indigo-600" />
+										Chi tiết hàng hóa ({invoiceItems.length} sản phẩm)
+									</h3>
+								</div>
+								<div className="overflow-x-auto">
+									<table className="w-full">
+										<thead>
+											<tr className="bg-gray-50 border-b border-gray-200">
+												<th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">STT</th>
+												<th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Mã hàng</th>
+												<th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Tên hàng</th>
+												<th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase">Số lượng</th>
+												<th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase">Đơn giá</th>
+												<th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase">Thành tiền</th>
+											</tr>
+										</thead>
+										<tbody>
+											{invoiceItems.map((item: any, i: number) => (
+												<tr key={i} className="border-b border-gray-100 hover:bg-gray-50 transition">
+													<td className="px-4 py-3 text-sm text-gray-600">{i + 1}</td>
+													<td className="px-4 py-3 text-sm font-medium text-gray-900">{item.MaHH}</td>
+													<td className="px-4 py-3 text-sm text-gray-700">{item.TenHH || '-'}</td>
+													<td className="px-4 py-3 text-sm text-right text-gray-600">{item.SoLuong || 0}</td>
+													<td className="px-4 py-3 text-sm text-right text-gray-700">{Number(item.DonGia || 0).toLocaleString('vi-VN')} ₫</td>
+													<td className="px-4 py-3 text-sm text-right font-semibold text-gray-900">
+														{typeof item.TongTien === 'string' 
+															? Number(item.TongTien || 0).toLocaleString('vi-VN') 
+															: Number(item.TongTien || 0).toLocaleString('vi-VN')} ₫
+													</td>
+												</tr>
+											))}
+										</tbody>
+										<tfoot>
+											<tr className="bg-gradient-to-r from-indigo-50 to-purple-50">
+												<td colSpan={5} className="px-4 py-4 text-right font-bold text-gray-800">
+													TỔNG TIỀN:
+												</td>
+												<td className="px-4 py-4 text-right font-bold text-xl text-indigo-600">
+													{Number(selectedHD.TongTien || 0).toLocaleString('vi-VN')} ₫
+												</td>
+											</tr>
+										</tfoot>
+									</table>
+								</div>
+							</div>
+						) : (
+							<div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 text-center">
+								<p className="text-yellow-800 font-medium">Không có chi tiết hàng hóa</p>
+							</div>
+						)}
+
+						{/* Actions */}
+						<div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+							<Button variant="secondary" onClick={() => { setOpenDetailModal(false); setInvoiceItems([]); }}>
 								Đóng
+							</Button>
+							<Button onClick={() => { setOpenDetailModal(false); print(selectedHD.MaHD); }}>
+								<FileText className="w-4 h-4 mr-2" />
+								In hóa đơn
 							</Button>
 						</div>
 					</div>

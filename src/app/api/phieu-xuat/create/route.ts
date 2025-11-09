@@ -11,8 +11,33 @@ export async function POST(req: Request) {
 
 		const { phieu, chitiet } = await req.json();
 
+		const supabase = getServerSupabase();
+
+		// Tự động tạo mã SoPX nếu không có (format: PX01, PX02, ...)
+		let soPX = phieu?.SoPX;
+		if (!soPX) {
+			// Lấy mã PX lớn nhất hiện có
+			const { data: lastPX } = await supabase
+				.from('phieuxuat')
+				.select('sopx')
+				.ilike('sopx', 'PX%')
+				.order('sopx', { ascending: false })
+				.limit(1)
+				.maybeSingle();
+
+			let nextNum = 1;
+			if (lastPX?.sopx) {
+				const match = lastPX.sopx.match(/PX(\d+)/);
+				if (match) {
+					nextNum = parseInt(match[1], 10) + 1;
+				}
+			}
+
+			soPX = 'PX' + String(nextNum).padStart(2, '0');
+		}
+
 		// Kiểm tra dữ liệu nhập vào (Validation)
-		if (!phieu?.SoPX) {
+		if (!soPX) {
 			return NextResponse.json({ error: 'Số phiếu xuất là bắt buộc' }, { status: 400 });
 		}
 		if (!Array.isArray(chitiet) || chitiet.length === 0) {
@@ -32,13 +57,11 @@ export async function POST(req: Request) {
 			}
 		}
 
-		const supabase = getServerSupabase();
-
 		// Kiểm tra số phiếu xuất đã tồn tại chưa
 		const { data: existing } = await supabase
 			.from('phieuxuat')
 			.select('sopx')
-			.eq('sopx', phieu.SoPX)
+			.eq('sopx', soPX)
 			.maybeSingle();
 
 		if (existing) {
@@ -87,7 +110,7 @@ export async function POST(req: Request) {
 		// Lưu thông tin phiếu xuất hàng (Save export slip information)
 		const { data: newPhieu, error: errPX } = await supabase
 			.from('phieuxuat')
-			.insert([{ sopx: phieu.SoPX, ngayxuat: phieu.NgayXuat ?? null, manv: phieu.MaNV ?? null }])
+			.insert([{ sopx: soPX, ngayxuat: phieu.NgayXuat ?? null, manv: phieu.MaNV ?? null }])
 			.select()
 			.single();
 
@@ -95,7 +118,7 @@ export async function POST(req: Request) {
 			await logActivity({
 				action: 'TAO',
 				table: 'phieuxuat',
-				recordId: phieu.SoPX,
+				recordId: soPX,
 				status: 'LOI',
 				error: errPX.message,
 			});
@@ -115,7 +138,7 @@ export async function POST(req: Request) {
 			// Lưu chi tiết
 			const { error: errCT } = await supabase.from('ctphieuxuat').insert([
 				{
-					sopx: phieu.SoPX,
+					sopx: soPX,
 					mahh: row.MaHH,
 					slxuat: row.SLXuat,
 					dongia: row.DonGia,
@@ -125,7 +148,7 @@ export async function POST(req: Request) {
 
 			if (errCT) {
 				// Rollback: Xóa phiếu xuất đã tạo
-				await supabase.from('phieuxuat').delete().eq('sopx', phieu.SoPX);
+				await supabase.from('phieuxuat').delete().eq('sopx', soPX);
 				throw errCT;
 			}
 
@@ -135,19 +158,19 @@ export async function POST(req: Request) {
 
 			if (errUpd) {
 				// Rollback: Xóa phiếu xuất và chi tiết đã tạo
-				await supabase.from('ctphieuxuat').delete().eq('sopx', phieu.SoPX);
-				await supabase.from('phieuxuat').delete().eq('sopx', phieu.SoPX);
+				await supabase.from('ctphieuxuat').delete().eq('sopx', soPX);
+				await supabase.from('phieuxuat').delete().eq('sopx', soPX);
 				throw errUpd;
 			}
 		}
 
 		// Ghi log
-		await logCRUD('TAO', 'phieuxuat', phieu.SoPX, null, newPhieu);
+		await logCRUD('TAO', 'phieuxuat', soPX, null, newPhieu);
 
 		return NextResponse.json({
 			ok: true,
 			data: {
-				SoPX: phieu.SoPX,
+				SoPX: soPX,
 				NgayXuat: phieu.NgayXuat,
 				MaNV: phieu.MaNV,
 			},

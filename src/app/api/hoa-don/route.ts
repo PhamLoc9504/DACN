@@ -13,6 +13,8 @@ function toCamel(row: any) {
 		SoPX: row.sopx,
 		SoPN: row.sopn,
 		MaNV: row.manv,
+		HinhThucGiao: row.hinhthucgiao,
+		PhuongThucTT: row.phuongthuctt,
 	};
 }
 
@@ -102,24 +104,55 @@ export async function POST(req: Request) {
             newMaHD = `HD${padded}`;
         }
 
-        // Compute TongTien from voucher details if provided
+        // Compute TongTien and prepare chi tiết từ phiếu nhập/xuất hoặc body
         let computedTongTien: number | null = null;
+        let chiTietToInsert: Array<{ mahh: string; soluong: number; dongia: number; tongtien: number }> = [];
+
         if (body.SoPN) {
+            // Lấy chi tiết từ phiếu nhập
             const { data: details, error: errCT } = await supabase
                 .from('ctphieunhap')
-                .select('tongtien')
+                .select('mahh, slnhap, dgnhap, tongtien')
                 .eq('sopn', body.SoPN);
             if (errCT) throw errCT;
-            computedTongTien = (details || []).reduce((s: number, r: any) => s + (r.tongtien || 0), 0);
+            
+            chiTietToInsert = (details || []).map((ct: any) => ({
+                mahh: ct.mahh,
+                soluong: ct.slnhap || 0,
+                dongia: ct.dgnhap || 0,
+                tongtien: Number(ct.tongtien || 0),
+            }));
+            
+            computedTongTien = chiTietToInsert.reduce((s, r) => s + r.tongtien, 0);
         } else if (body.SoPX) {
+            // Lấy chi tiết từ phiếu xuất
             const { data: details, error: errCT } = await supabase
                 .from('ctphieuxuat')
-                .select('tongtien')
+                .select('mahh, slxuat, dongia, tongtien')
                 .eq('sopx', body.SoPX);
             if (errCT) throw errCT;
-            computedTongTien = (details || []).reduce((s: number, r: any) => s + (r.tongtien || 0), 0);
+            
+            chiTietToInsert = (details || []).map((ct: any) => ({
+                mahh: ct.mahh,
+                soluong: ct.slxuat || 0,
+                dongia: ct.dongia || 0,
+                tongtien: Number(ct.tongtien || 0),
+            }));
+            
+            computedTongTien = chiTietToInsert.reduce((s, r) => s + r.tongtien, 0);
+        } else if (body.ChiTiet && Array.isArray(body.ChiTiet)) {
+            // Tạo hóa đơn trực tiếp với chi tiết từ body
+            chiTietToInsert = body.ChiTiet.map((ct: any) => ({
+                mahh: ct.MaHH,
+                soluong: ct.SoLuong || 0,
+                dongia: ct.DonGia || 0,
+                tongtien: (ct.SoLuong || 0) * (ct.DonGia || 0),
+            }));
+            
+            computedTongTien = chiTietToInsert.reduce((s, r) => s + r.tongtien, 0);
         }
 
+        // Tạo hóa đơn
         const { data, error } = await supabase
             .from('hoadon')
             .insert({
@@ -131,6 +164,8 @@ export async function POST(req: Request) {
                 sopx: body.SoPX,
                 sopn: body.SoPN,
                 manv: resolvedMaNV,
+                hinhthucgiao: body.HinhThucGiao || 'Giao hàng',
+                phuongthuctt: body.PhuongThucTT || 'Tiền mặt',
             })
             .select('*')
             .single();
@@ -144,6 +179,35 @@ export async function POST(req: Request) {
             });
             throw error;
         }
+
+        // Tạo chi tiết hóa đơn trong bảng ct_hoadon
+        if (chiTietToInsert.length > 0) {
+            const chiTietData = chiTietToInsert.map(ct => ({
+                mahd: newMaHD,
+                mahh: ct.mahh,
+                soluong: ct.soluong,
+                dongia: ct.dongia,
+                tongtien: ct.tongtien,
+            }));
+
+            const { error: errCT } = await supabase
+                .from('ct_hoadon')
+                .insert(chiTietData);
+
+            if (errCT) {
+                // Rollback: Xóa hóa đơn đã tạo
+                await supabase.from('hoadon').delete().eq('mahd', newMaHD);
+                await logActivity({
+                    action: 'TAO',
+                    table: 'hoadon',
+                    recordId: newMaHD,
+                    status: 'LOI',
+                    error: `Failed to create chi tiết: ${errCT.message}`,
+                });
+                throw new Error(`Lỗi khi tạo chi tiết hóa đơn: ${errCT.message}`);
+            }
+        }
+
         await logCRUD('TAO', 'hoadon', newMaHD, undefined, toCamel(data));
         return NextResponse.json({ data: toCamel(data) });
     } catch (e: any) {
@@ -169,6 +233,8 @@ export async function PUT(req: Request) {
                 sopx: body.SoPX,
                 sopn: body.SoPN,
                 manv: body.MaNV,
+                hinhthucgiao: body.HinhThucGiao || 'Giao hàng',
+                phuongthuctt: body.PhuongThucTT || 'Tiền mặt',
             })
             .eq('mahd', id)
             .select('*')

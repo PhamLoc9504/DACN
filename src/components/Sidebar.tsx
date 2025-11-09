@@ -111,6 +111,21 @@ export default function Sidebar({ session }: { session?: AppSession | null }) {
 							)}
 						</Link>
 						<Link
+							href="/backup"
+							className={cn(
+								'group relative flex items-center gap-2 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all duration-200 border',
+								pathname === '/backup'
+									? 'bg-[#fde7e2] text-[#d46b6b] shadow-sm border-[#efc9c2] ring-1 ring-[#f7ddd6]'
+									: 'text-[#7b6a60] hover:text-[#d46b6b] hover:bg-[#fff0ee] border-transparent hover:border-[#f3ddd6] hover:shadow-sm'
+							)}
+						>
+							{pathname === '/backup' && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 rounded-r bg-[#e28c8c] shadow-[0_0_0_1px_rgba(226,140,140,0.25)]" />}
+							<span>💾 Backup & Restore</span>
+							{pathname === '/backup' && (
+								<span className="ml-auto h-2 w-2 rounded-full bg-[#e28c8c] shadow-inner animate-pulse" />
+							)}
+						</Link>
+						<Link
 							href="/cau-hinh-he-thong"
 							className={cn(
 								'group relative flex items-center gap-2 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all duration-200 border',

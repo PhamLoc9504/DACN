@@ -55,10 +55,21 @@ export async function POST(req: Request) {
 			return NextResponse.json({ error: 'Số tiền thanh toán không đủ' }, { status: 400 });
 		}
 
-		// Cập nhật trạng thái hóa đơn
+		// Map phương thức thanh toán từ form sang database
+		const phuongThucMap: Record<string, string> = {
+			'tien-mat': 'Tiền mặt',
+			'chuyen-khoan': 'Chuyển khoản',
+			'quet-qr': 'VNPay',
+		};
+		const phuongThucTT = phuongThucMap[PhuongThuc] || 'Tiền mặt';
+
+		// Cập nhật trạng thái hóa đơn và phương thức thanh toán
 		const { data: updatedHD, error: errUpdate } = await supabase
 			.from('hoadon')
-			.update({ trangthai: 'Đã thanh toán' })
+			.update({ 
+				trangthai: 'Đã thanh toán',
+				phuongthuctt: phuongThucTT,
+			})
 			.eq('mahd', MaHD)
 			.select()
 			.single();

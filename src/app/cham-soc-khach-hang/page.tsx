@@ -385,7 +385,7 @@ export default function ChamSocKhachHangPage() {
 				<div className="flex items-center justify-between mb-6">
 					<h1 className="text-3xl font-bold text-[#d47b8a] flex items-center gap-3">
 						<span className="text-4xl">💎</span>
-						<span>Chăm sóc khách hàng VIP Pro</span>
+						<span>Chăm sóc khách hàng</span>
 					</h1>
 				</div>
 
@@ -414,7 +414,7 @@ export default function ChamSocKhachHangPage() {
 
 				{/* Content */}
 				{loading ? (
-					<div className="text-center py-10 text-gray-500">Đang tải...</div>
+					<div className="text-center py-10 text-gray-500">Vui long cho trong giay lat...</div>
 				) : (
 					<>
 						{/* Tab: Thông tin khách hàng */}
@@ -452,20 +452,17 @@ export default function ChamSocKhachHangPage() {
 										</thead>
 										<tbody>
 											{khachHangList.map((kh) => (
-												<tr key={kh.MaKH} className="border-b border-[#f5ebe0] hover:bg-[#fce7ec]/40 transition">
+												<tr 
+													key={kh.MaKH} 
+													className="border-b border-[#f5ebe0] hover:bg-[#fce7ec]/40 transition cursor-pointer"
+													onClick={() => openDetail(kh.MaKH)}
+												>
 													<td className="py-3 px-4 font-medium">{kh.MaKH}</td>
 													<td className="py-3 px-4">{kh.TenKH}</td>
 													<td className="py-3 px-4 text-gray-700">{kh.SDT || '-'}</td>
 													<td className="py-3 px-4 text-gray-700">{kh.DiaChi || '-'}</td>
-													<td className="py-3 px-4">
+													<td className="py-3 px-4" onClick={(e) => e.stopPropagation()}>
 														<div className="flex gap-2 justify-center">
-															<button
-																onClick={() => openDetail(kh.MaKH)}
-																className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition"
-															>
-																<Eye className="w-3 h-3 inline mr-1" />
-																Xem
-															</button>
 															<button
 																onClick={() => openEdit(kh)}
 																className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200 transition"
@@ -838,31 +835,69 @@ export default function ChamSocKhachHangPage() {
 				</form>
 			</Modal>
 
-			{/* Modal: Detail Khách hàng */}
-			<Modal open={openDetailModal} onClose={() => setOpenDetailModal(false)} title={`Chi tiết khách hàng ${selectedKH?.MaKH}`}>
+			{/* Modal: Detail Khách hàng - Design đẹp hơn */}
+			<Modal open={openDetailModal} onClose={() => setOpenDetailModal(false)} title="">
 				{selectedKH && (
-					<div className="space-y-4">
-						<div className="grid grid-cols-2 gap-4 text-sm">
-							<div>
-								<span className="text-gray-500">Mã KH:</span>
-								<span className="ml-2 font-medium">{selectedKH.MaKH}</span>
-							</div>
-							<div>
-								<span className="text-gray-500">Tên KH:</span>
-								<span className="ml-2 font-medium">{selectedKH.TenKH}</span>
-							</div>
-							<div>
-								<span className="text-gray-500">Số điện thoại:</span>
-								<span className="ml-2">{selectedKH.SDT || '-'}</span>
-							</div>
-							<div>
-								<span className="text-gray-500">Địa chỉ:</span>
-								<span className="ml-2">{selectedKH.DiaChi || '-'}</span>
+					<div className="space-y-6">
+						{/* Header với gradient */}
+						<div className="bg-gradient-to-r from-pink-600 via-rose-600 to-red-600 text-white p-6 rounded-xl -mt-6 -mx-6 mb-4">
+							<div className="flex items-center justify-between">
+								<div>
+									<h2 className="text-2xl font-bold mb-1">Chi tiết khách hàng</h2>
+									<p className="text-pink-100 text-sm">Customer Details</p>
+								</div>
+								<div className="text-right">
+									<div className="text-sm text-pink-100 mb-1">Mã khách hàng</div>
+									<div className="text-3xl font-bold">{selectedKH.MaKH}</div>
+								</div>
 							</div>
 						</div>
-						<div className="flex justify-end gap-2">
+
+						{/* Thông tin khách hàng */}
+						<div className="grid md:grid-cols-2 gap-4">
+							<div className="bg-gradient-to-br from-pink-50 to-rose-50 p-5 rounded-xl border border-pink-100">
+								<div className="flex items-center gap-2 mb-3">
+									<div className="w-2 h-2 bg-pink-600 rounded-full"></div>
+									<h3 className="font-semibold text-gray-800">Thông tin cơ bản</h3>
+								</div>
+								<div className="space-y-3 text-sm">
+									<div className="flex justify-between items-center">
+										<span className="text-gray-600">Mã KH:</span>
+										<span className="font-bold text-gray-900">{selectedKH.MaKH}</span>
+									</div>
+									<div className="flex justify-between items-center">
+										<span className="text-gray-600">Tên KH:</span>
+										<span className="font-semibold text-gray-900">{selectedKH.TenKH || '-'}</span>
+									</div>
+								</div>
+							</div>
+
+							<div className="bg-gradient-to-br from-purple-50 to-indigo-50 p-5 rounded-xl border border-purple-100">
+								<div className="flex items-center gap-2 mb-3">
+									<div className="w-2 h-2 bg-purple-600 rounded-full"></div>
+									<h3 className="font-semibold text-gray-800">Liên hệ</h3>
+								</div>
+								<div className="space-y-3 text-sm">
+									<div className="flex justify-between items-start">
+										<span className="text-gray-600">Số điện thoại:</span>
+										<span className="font-medium text-gray-900 text-right">{selectedKH.SDT || '-'}</span>
+									</div>
+									<div className="flex justify-between items-start">
+										<span className="text-gray-600">Địa chỉ:</span>
+										<span className="font-medium text-gray-900 text-right max-w-[200px]">{selectedKH.DiaChi || '-'}</span>
+									</div>
+								</div>
+							</div>
+						</div>
+
+						{/* Actions */}
+						<div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
 							<Button variant="secondary" onClick={() => setOpenDetailModal(false)}>
 								Đóng
+							</Button>
+							<Button onClick={() => { setOpenDetailModal(false); openEdit(selectedKH); }}>
+								<Edit className="w-4 h-4 mr-2" />
+								Sửa thông tin
 							</Button>
 						</div>
 					</div>

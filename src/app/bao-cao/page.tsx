@@ -269,7 +269,7 @@ export default function BaoCaoPage() {
 	}
 
 	async function loadDoanhThuReport() {
-		setLoading(true);
+			setLoading(true);
 		try {
 			const res = await fetch(`/api/hoa-don?status=${encodeURIComponent('Đã thanh toán')}&limit=10000&page=1`, {
 				credentials: 'include',
@@ -476,25 +476,25 @@ export default function BaoCaoPage() {
 								</div>
 								<div className="rounded-xl border bg-white p-4 shadow-sm">
 									<div className="font-semibold text-gray-800 mb-4">📦 Top sản phẩm nhập nhiều nhất</div>
-									<div className="overflow-x-auto">
-										<table className="min-w-full text-sm">
-											<thead>
+					<div className="overflow-x-auto">
+						<table className="min-w-full text-sm">
+							<thead>
 												<tr className="text-left bg-gray-50 text-gray-600 border-b">
 													<th className="py-2 px-4 font-medium">STT</th>
 													<th className="py-2 px-4 font-medium">Tên sản phẩm</th>
 													<th className="py-2 px-4 font-medium text-right">Số lượng</th>
 													<th className="py-2 px-4 font-medium text-right">Giá trị</th>
-												</tr>
-											</thead>
-											<tbody>
+								</tr>
+							</thead>
+							<tbody>
 												{nhapData.byProduct.map((p, i) => (
 													<tr key={i} className="border-b hover:bg-gray-50">
 														<td className="py-2 px-4">{i + 1}</td>
 														<td className="py-2 px-4">{p.name}</td>
 														<td className="py-2 px-4 text-right">{p.quantity.toLocaleString('vi-VN')}</td>
 														<td className="py-2 px-4 text-right font-medium text-[#d47b8a]">{p.value.toLocaleString('vi-VN')} ₫</td>
-													</tr>
-												))}
+										</tr>
+									))}
 											</tbody>
 										</table>
 									</div>
@@ -582,8 +582,8 @@ export default function BaoCaoPage() {
 														<td className="py-2 px-4">{p.name}</td>
 														<td className="py-2 px-4 text-right">{p.quantity.toLocaleString('vi-VN')}</td>
 														<td className="py-2 px-4 text-right font-medium text-[#d47b8a]">{p.value.toLocaleString('vi-VN')} ₫</td>
-													</tr>
-												))}
+										</tr>
+									))}
 											</tbody>
 										</table>
 									</div>
@@ -683,12 +683,12 @@ export default function BaoCaoPage() {
 												{tonKhoData.lowStock.length === 0 && (
 													<tr>
 														<td colSpan={3} className="py-6 text-center text-gray-500">Không có sản phẩm nào sắp hết hàng</td>
-													</tr>
-												)}
-											</tbody>
-										</table>
-									</div>
-								</div>
+									</tr>
+								)}
+							</tbody>
+						</table>
+					</div>
+				</div>
 							</div>
 						)}
 

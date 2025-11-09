@@ -96,6 +96,8 @@ export type Tables = {
 		SoPX: string | null;
 		SoPN: string | null;
 		MaNV: string | null;
+		HinhThucGiao: string | null;
+		PhuongThucTT: string | null;
 	};
 	CT_HoaDon: {
 		MaHD: string;

@@ -143,9 +143,7 @@ export default function XuatHangPage() {
 
 	// Kiểm tra dữ liệu nhập vào (Validation)
 	function validateForm(): { valid: boolean; error: string | null } {
-		if (!form.SoPX) {
-			return { valid: false, error: 'Số phiếu xuất là bắt buộc' };
-		}
+		// SoPX không bắt buộc nữa - API sẽ tự động tạo nếu để trống
 
 		const chitiet = lines.filter((l) => l.MaHH && l.SLXuat > 0);
 		if (chitiet.length === 0) {
@@ -400,18 +398,16 @@ export default function XuatHangPage() {
 
 						{!loading &&
 							rows.map((r) => (
-								<tr key={r.SoPX} className="border-b border-[#f5ebe0] hover:bg-[#fce7ec]/40 transition">
+								<tr 
+									key={r.SoPX} 
+									className="border-b border-[#f5ebe0] hover:bg-[#fce7ec]/40 transition cursor-pointer"
+									onClick={() => openDetailModal(r.SoPX)}
+								>
 									<td className="py-3 px-4 font-medium text-gray-700">{r.SoPX}</td>
 									<td className="py-3 px-4 text-gray-600">{r.NgayXuat ? new Date(r.NgayXuat).toLocaleDateString('vi-VN') : '-'}</td>
 									<td className="py-3 px-4 text-[#d47b8a] font-semibold">{r.MaNV || '-'}</td>
-									<td className="py-3 px-4">
+									<td className="py-3 px-4" onClick={(e) => e.stopPropagation()}>
 										<div className="flex gap-2">
-											<button
-												onClick={() => openDetailModal(r.SoPX)}
-												className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition"
-											>
-												👁️ Xem
-											</button>
 											<button
 												onClick={() => openEditModal(r)}
 												className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200 transition"
@@ -492,18 +488,8 @@ export default function XuatHangPage() {
 							</div>
 						</div>
 					)}
-					<div className="grid grid-cols-3 gap-3">
-						<div>
-							<label className="block text-sm mb-1 text-gray-500">Số PX *</label>
-							<input
-								className="w-full border rounded px-3 py-2"
-								placeholder="Số PX"
-								value={form.SoPX}
-								onChange={(e) => setForm({ ...form, SoPX: e.target.value })}
-								required
-								disabled={!!editing}
-							/>
-						</div>
+					<div className="grid grid-cols-2 gap-3">
+						{/* Số PX - Ẩn hoàn toàn, tự động tạo */}
 						<div>
 							<label className="block text-sm mb-1 text-gray-500">Ngày xuất</label>
 							<input
@@ -758,49 +744,92 @@ export default function XuatHangPage() {
 				)}
 			</Modal>
 
-			{/* --- Modal xem chi tiết --- */}
-			<Modal open={detailOpen} onClose={() => setDetailOpen(false)} title={`Chi tiết phiếu xuất ${selectedPX}`}>
-				<div className="space-y-4">
-					<div className="bg-gray-50 p-4 rounded-lg">
-						<div className="grid grid-cols-2 gap-4 text-sm">
+			{/* --- Modal xem chi tiết - Design đẹp hơn --- */}
+			<Modal open={detailOpen} onClose={() => setDetailOpen(false)} title="">
+				<div className="space-y-6">
+					{/* Header với gradient */}
+					<div className="bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 text-white p-6 rounded-xl -mt-6 -mx-6 mb-4">
+						<div className="flex items-center justify-between">
 							<div>
-								<span className="text-gray-600">Số phiếu xuất:</span>
-								<span className="ml-2 font-medium">{selectedPX}</span>
+								<h2 className="text-2xl font-bold mb-1">Chi tiết phiếu xuất</h2>
+								<p className="text-green-100 text-sm">Export Slip Details</p>
 							</div>
-							<div>
-								<span className="text-gray-600">Tổng tiền:</span>
-								<span className="ml-2 font-bold text-[#d47b8a]">{tongTien.toLocaleString('vi-VN')} ₫</span>
+							<div className="text-right">
+								<div className="text-sm text-green-100 mb-1">Số phiếu xuất</div>
+								<div className="text-3xl font-bold">{selectedPX}</div>
 							</div>
 						</div>
 					</div>
-					<table className="w-full text-sm border">
-						<thead>
-							<tr className="bg-slate-50 text-slate-600">
-								<th className="p-2 text-left">Mã HH</th>
-								<th className="p-2 text-left">Tên hàng</th>
-								<th className="p-2 text-right">SL xuất</th>
-								<th className="p-2 text-right">Đơn giá</th>
-								<th className="p-2 text-right">Thành tiền</th>
-							</tr>
-						</thead>
-						<tbody>
-							{chiTiet.map((ct, i) => (
-								<tr key={i} className="border-t">
-									<td className="p-2">{ct.MaHH}</td>
-									<td className="p-2">{ct.TenHH || '-'}</td>
-									<td className="p-2 text-right">{ct.SLXuat}</td>
-									<td className="p-2 text-right">{Number(ct.DonGia).toLocaleString('vi-VN')}</td>
-									<td className="p-2 text-right font-medium">{Number(ct.TongTien).toLocaleString('vi-VN')}</td>
-								</tr>
-							))}
-						</tbody>
-					</table>
-					<div className="flex justify-end gap-2 pt-4">
-						<Button variant="secondary" onClick={() => handlePrint(selectedPX || '')}>
-							🖨️ In phiếu
-						</Button>
+
+					{/* Thông tin phiếu */}
+					<div className="bg-gradient-to-br from-green-50 to-emerald-50 p-4 rounded-xl border border-green-100">
+						<div className="flex items-center justify-between">
+							<div className="flex items-center gap-2">
+								<div className="w-2 h-2 bg-green-600 rounded-full"></div>
+								<span className="text-gray-600 font-medium">Tổng tiền:</span>
+							</div>
+							<span className="text-2xl font-bold text-green-600">{tongTien.toLocaleString('vi-VN')} ₫</span>
+						</div>
+					</div>
+
+					{/* Chi tiết hàng hóa */}
+					{chiTiet.length > 0 ? (
+						<div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+							<div className="bg-gradient-to-r from-gray-50 to-gray-100 px-4 py-3 border-b border-gray-200">
+								<h3 className="font-semibold text-gray-800 flex items-center gap-2">
+									📦 Chi tiết hàng hóa ({chiTiet.length} sản phẩm)
+								</h3>
+							</div>
+							<div className="overflow-x-auto">
+								<table className="w-full">
+									<thead>
+										<tr className="bg-gray-50 border-b border-gray-200">
+											<th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">STT</th>
+											<th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Mã hàng</th>
+											<th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Tên hàng</th>
+											<th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase">SL xuất</th>
+											<th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase">Đơn giá</th>
+											<th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase">Thành tiền</th>
+										</tr>
+									</thead>
+									<tbody>
+										{chiTiet.map((ct, i) => (
+											<tr key={i} className="border-b border-gray-100 hover:bg-gray-50 transition">
+												<td className="px-4 py-3 text-sm text-gray-600">{i + 1}</td>
+												<td className="px-4 py-3 text-sm font-medium text-gray-900">{ct.MaHH}</td>
+												<td className="px-4 py-3 text-sm text-gray-700">{ct.TenHH || '-'}</td>
+												<td className="px-4 py-3 text-sm text-right text-gray-600">{ct.SLXuat}</td>
+												<td className="px-4 py-3 text-sm text-right text-gray-700">{Number(ct.DonGia).toLocaleString('vi-VN')} ₫</td>
+												<td className="px-4 py-3 text-sm text-right font-semibold text-gray-900">{Number(ct.TongTien).toLocaleString('vi-VN')} ₫</td>
+											</tr>
+										))}
+									</tbody>
+									<tfoot>
+										<tr className="bg-gradient-to-r from-green-50 to-emerald-50">
+											<td colSpan={5} className="px-4 py-4 text-right font-bold text-gray-800">
+												TỔNG TIỀN:
+											</td>
+											<td className="px-4 py-4 text-right font-bold text-xl text-green-600">
+												{tongTien.toLocaleString('vi-VN')} ₫
+											</td>
+										</tr>
+									</tfoot>
+								</table>
+							</div>
+						</div>
+					) : (
+						<div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 text-center">
+							<p className="text-yellow-800 font-medium">Không có chi tiết hàng hóa</p>
+						</div>
+					)}
+
+					{/* Actions */}
+					<div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
 						<Button variant="secondary" onClick={() => setDetailOpen(false)}>
 							Đóng
+						</Button>
+						<Button onClick={() => { setDetailOpen(false); handlePrint(selectedPX || ''); }}>
+							🖨️ In phiếu
 						</Button>
 					</div>
 				</div>

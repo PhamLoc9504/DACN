@@ -22,7 +22,8 @@ export type AuditTable =
 	| 'khachhang'
 	| 'nhacc'
 	| 'nhanvien'
-	| 'taikhoan';
+	| 'taikhoan'
+	| 'backuplog';
 
 interface AuditLogParams {
   action: AuditAction;

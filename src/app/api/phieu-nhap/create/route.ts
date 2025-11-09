@@ -11,8 +11,33 @@ export async function POST(req: Request) {
 
 		const { phieu, chitiet } = await req.json();
 
+		const supabase = getServerSupabase();
+
+		// Tự động tạo mã SoPN nếu không có (format: PN01, PN02, ...)
+		let soPN = phieu?.SoPN;
+		if (!soPN) {
+			// Lấy mã PN lớn nhất hiện có
+			const { data: lastPN } = await supabase
+				.from('phieunhap')
+				.select('sopn')
+				.ilike('sopn', 'PN%')
+				.order('sopn', { ascending: false })
+				.limit(1)
+				.maybeSingle();
+
+			let nextNum = 1;
+			if (lastPN?.sopn) {
+				const match = lastPN.sopn.match(/PN(\d+)/);
+				if (match) {
+					nextNum = parseInt(match[1], 10) + 1;
+				}
+			}
+
+			soPN = 'PN' + String(nextNum).padStart(2, '0');
+		}
+
 		// Kiểm tra dữ liệu nhập vào (Validation)
-		if (!phieu?.SoPN) {
+		if (!soPN) {
 			return NextResponse.json({ error: 'Số phiếu nhập là bắt buộc' }, { status: 400 });
 		}
 		if (!Array.isArray(chitiet) || chitiet.length === 0) {
@@ -32,13 +57,11 @@ export async function POST(req: Request) {
 			}
 		}
 
-		const supabase = getServerSupabase();
-
 		// Kiểm tra số phiếu nhập đã tồn tại chưa
 		const { data: existing } = await supabase
 			.from('phieunhap')
 			.select('sopn')
-			.eq('sopn', phieu.SoPN)
+			.eq('sopn', soPN)
 			.maybeSingle();
 
 		if (existing) {
@@ -50,7 +73,7 @@ export async function POST(req: Request) {
 			.from('phieunhap')
 			.insert([
 				{
-					sopn: phieu.SoPN,
+					sopn: soPN,
 					ngaynhap: phieu.NgayNhap ?? null,
 					manv: phieu.MaNV ?? null,
 					mancc: phieu.MaNCC ?? null,
@@ -63,7 +86,7 @@ export async function POST(req: Request) {
 			await logActivity({
 				action: 'TAO',
 				table: 'phieunhap',
-				recordId: phieu.SoPN,
+				recordId: soPN,
 				status: 'LOI',
 				error: errPN.message,
 			});
@@ -81,14 +104,14 @@ export async function POST(req: Request) {
 
 			if (!product) {
 				// Rollback: Xóa phiếu nhập đã tạo
-				await supabase.from('phieunhap').delete().eq('sopn', phieu.SoPN);
+				await supabase.from('phieunhap').delete().eq('sopn', soPN);
 				return NextResponse.json({ error: `Hàng hóa ${row.MaHH} không tồn tại` }, { status: 400 });
 			}
 
 			// Lưu chi tiết
 			const { error: errCT } = await supabase.from('ctphieunhap').insert([
 				{
-					sopn: phieu.SoPN,
+					sopn: soPN,
 					mahh: row.MaHH,
 					slnhap: row.SLNhap,
 					dgnhap: row.DGNhap,
@@ -98,7 +121,7 @@ export async function POST(req: Request) {
 
 			if (errCT) {
 				// Rollback: Xóa phiếu nhập đã tạo
-				await supabase.from('phieunhap').delete().eq('sopn', phieu.SoPN);
+				await supabase.from('phieunhap').delete().eq('sopn', soPN);
 				throw errCT;
 			}
 
@@ -109,19 +132,19 @@ export async function POST(req: Request) {
 
 			if (errUpd) {
 				// Rollback: Xóa phiếu nhập và chi tiết đã tạo
-				await supabase.from('ctphieunhap').delete().eq('sopn', phieu.SoPN);
-				await supabase.from('phieunhap').delete().eq('sopn', phieu.SoPN);
+				await supabase.from('ctphieunhap').delete().eq('sopn', soPN);
+				await supabase.from('phieunhap').delete().eq('sopn', soPN);
 				throw errUpd;
 			}
 		}
 
 		// Ghi log
-		await logCRUD('TAO', 'phieunhap', phieu.SoPN, null, newPhieu);
+		await logCRUD('TAO', 'phieunhap', soPN, null, newPhieu);
 
 		return NextResponse.json({
 			ok: true,
 			data: {
-				SoPN: phieu.SoPN,
+				SoPN: soPN,
 				NgayNhap: phieu.NgayNhap,
 				MaNV: phieu.MaNV,
 				MaNCC: phieu.MaNCC,
