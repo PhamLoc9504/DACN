@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
+import { formatVietnamDate } from '@/lib/dateUtils';
 
 type ChiTiet = {
 	MaHH: string;
@@ -68,7 +69,7 @@ export default function PrintPhieuXuatPage() {
 			<div className="mb-6 grid grid-cols-2 gap-4 text-sm">
 				<div>
 					<span className="font-medium">Ngày xuất:</span>
-					<span className="ml-2">{phieu.NgayXuat ? new Date(phieu.NgayXuat).toLocaleDateString('vi-VN') : '-'}</span>
+					<span className="ml-2">{phieu.NgayXuat ? formatVietnamDate(phieu.NgayXuat) : '-'}</span>
 				</div>
 				<div>
 					<span className="font-medium">Mã nhân viên:</span>

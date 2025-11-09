@@ -5,6 +5,7 @@ import Pagination from '@/components/Pagination';
 import Modal from '@/components/Modal';
 import Button from '@/components/Button';
 import { supabase, type Tables } from '@/lib/supabaseClient';
+import { formatVietnamDateTime, formatVietnamDate } from '@/lib/dateUtils';
 import { CreditCard, Wallet, QrCode, Search, Truck, FileText, Download, Eye, Edit, Trash2, Send, TrendingUp, DollarSign, Calendar, MoreVertical, Settings, CheckCircle, AlertTriangle } from 'lucide-react';
 
 const TRANGTHAI = ['', 'Chưa thanh toán', 'Đã thanh toán', 'Đang xử lý'];
@@ -598,7 +599,7 @@ export default function HoaDonPage() {
 									onClick={() => openDetail(r.MaHD)}
 								>
                                     <td className="py-3 px-4 font-medium">{r.MaHD}</td>
-									<td className="py-3 px-4">{r.NgayLap ? new Date(r.NgayLap).toLocaleDateString('vi-VN') : '-'}</td>
+									<td className="py-3 px-4">{r.NgayLap ? formatVietnamDate(r.NgayLap) : '-'}</td>
 									<td className="py-3 px-4">{r.MaKH || '-'}</td>
 									<td className="py-3 px-4 text-[#d47b8a] font-semibold">{r.TongTien?.toLocaleString('vi-VN')} ₫</td>
                                     <td
@@ -993,7 +994,7 @@ export default function HoaDonPage() {
 								</div>
 								<div>
 									<span className="text-gray-500">Ngày lập:</span>
-									<span className="ml-2">{selectedHD.NgayLap ? new Date(selectedHD.NgayLap).toLocaleDateString('vi-VN') : '-'}</span>
+									<span className="ml-2">{selectedHD.NgayLap ? formatVietnamDate(selectedHD.NgayLap) : '-'}</span>
 								</div>
 								<div>
 									<span className="text-gray-500">Mã KH:</span>
@@ -1170,7 +1171,7 @@ export default function HoaDonPage() {
 								</div>
 								<div className="flex justify-between">
 									<span className="text-gray-500">Ngày lập:</span>
-									<span>{selectedHD.NgayLap ? new Date(selectedHD.NgayLap).toLocaleDateString('vi-VN') : '-'}</span>
+									<span>{selectedHD.NgayLap ? formatVietnamDate(selectedHD.NgayLap) : '-'}</span>
 								</div>
 								<div className="flex justify-between">
 									<span className="text-gray-500">Mã KH:</span>
@@ -1190,7 +1191,7 @@ export default function HoaDonPage() {
 								</div>
 								<div className="flex justify-between">
 									<span className="text-gray-500">Thời gian thanh toán:</span>
-									<span>{new Date(paymentResult.ThoiGian).toLocaleString('vi-VN')}</span>
+									<span>{formatVietnamDateTime(paymentResult.ThoiGian)}</span>
 								</div>
 								<div className="flex justify-between pt-2 border-t">
 									<span className="text-gray-500 font-medium">Trạng thái:</span>
@@ -1268,7 +1269,7 @@ export default function HoaDonPage() {
 								<div className="space-y-2 text-sm">
 									<div className="flex justify-between">
 										<span className="text-gray-600">Ngày lập:</span>
-										<span className="font-medium text-gray-900">{selectedHD.NgayLap ? new Date(selectedHD.NgayLap).toLocaleDateString('vi-VN') : '-'}</span>
+										<span className="font-medium text-gray-900">{selectedHD.NgayLap ? formatVietnamDate(selectedHD.NgayLap) : '-'}</span>
 									</div>
 									<div className="flex justify-between">
 										<span className="text-gray-600">Mã KH:</span>
@@ -1395,7 +1396,7 @@ export default function HoaDonPage() {
 										</div>
 										<div>
 											<span className="text-gray-500">Ngày giao:</span>
-											<span className="ml-2">{shippingInfo.NgayGiao ? new Date(shippingInfo.NgayGiao).toLocaleDateString('vi-VN') : '-'}</span>
+											<span className="ml-2">{shippingInfo.NgayGiao ? formatVietnamDate(shippingInfo.NgayGiao) : '-'}</span>
 										</div>
 										<div className="col-span-2">
 											<span className="text-gray-500">Địa chỉ nhận:</span>

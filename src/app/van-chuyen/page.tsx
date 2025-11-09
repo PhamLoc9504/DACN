@@ -5,6 +5,7 @@ import Pagination from '@/components/Pagination';
 import Modal from '@/components/Modal';
 import Button from '@/components/Button';
 import { type Tables } from '@/lib/supabaseClient';
+import { formatVietnamDate } from '@/lib/dateUtils';
 import { Truck, Eye, CheckCircle, Package, MapPin, Calendar, CreditCard, User } from 'lucide-react';
 
 type VanChuyenRow = Tables['Dovi_VanChuyen'] & {
@@ -247,7 +248,7 @@ export default function VanChuyenPage() {
 										{r.DiaChiNhan || '-'}
 									</td>
 									<td className="py-3 px-4 text-gray-600">
-										{r.NgayGiao ? new Date(r.NgayGiao).toLocaleDateString('vi-VN') : '-'}
+										{r.NgayGiao ? formatVietnamDate(r.NgayGiao) : '-'}
 									</td>
 									<td className="py-3 px-4">
 										<span
@@ -324,9 +325,7 @@ export default function VanChuyenPage() {
 								<div>
 									<span className="text-gray-500">Ngày giao:</span>
 									<span className="ml-2">
-										{selectedVC.NgayGiao
-											? new Date(selectedVC.NgayGiao).toLocaleDateString('vi-VN')
-											: '-'}
+										{selectedVC.NgayGiao ? formatVietnamDate(selectedVC.NgayGiao) : '-'}
 									</span>
 								</div>
 								<div>
@@ -365,9 +364,7 @@ export default function VanChuyenPage() {
 									<div>
 										<span className="text-gray-500">Ngày lập:</span>
 										<span className="ml-2">
-											{selectedVC.HoaDon.NgayLap
-												? new Date(selectedVC.HoaDon.NgayLap).toLocaleDateString('vi-VN')
-												: '-'}
+											{selectedVC.HoaDon.NgayLap ? formatVietnamDate(selectedVC.HoaDon.NgayLap) : '-'}
 										</span>
 									</div>
 									<div>

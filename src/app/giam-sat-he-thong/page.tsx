@@ -13,6 +13,7 @@ import {
 	Bar,
 } from 'recharts';
 import { Activity, Users, AlertTriangle, CheckCircle } from 'lucide-react';
+import { formatVietnamDateTime, getVietnamDate, getVietnamHour } from '@/lib/dateUtils';
 
 type ActivityStats = {
 	total: number;
@@ -84,23 +85,25 @@ export default function GiamSatHeThongPage() {
 				.sort((a, b) => b.value - a.value)
 				.slice(0, 10);
 
-			// Thống kê theo ngày
+			// Thống kê theo ngày (theo múi giờ Việt Nam)
 			const dayMap = new Map<string, number>();
 			logs.forEach((log: any) => {
 				if (log.thoiGian) {
-					const day = new Date(log.thoiGian).toISOString().split('T')[0];
-					dayMap.set(day, (dayMap.get(day) || 0) + 1);
+					const day = getVietnamDate(log.thoiGian);
+					if (day) {
+						dayMap.set(day, (dayMap.get(day) || 0) + 1);
+					}
 				}
 			});
 			const byDay = Array.from(dayMap.entries())
 				.map(([day, count]) => ({ day: day.slice(5), count }))
 				.sort((a, b) => a.day.localeCompare(b.day));
 
-			// Thống kê theo giờ
+			// Thống kê theo giờ (theo múi giờ Việt Nam)
 			const hourMap = new Map<string, number>();
 			logs.forEach((log: any) => {
 				if (log.thoiGian) {
-					const hour = new Date(log.thoiGian).getHours();
+					const hour = getVietnamHour(log.thoiGian);
 					const hourKey = `${hour}:00`;
 					hourMap.set(hourKey, (hourMap.get(hourKey) || 0) + 1);
 				}
@@ -266,7 +269,7 @@ export default function GiamSatHeThongPage() {
 									{stats.recentErrors.map((error, i) => (
 										<div key={i} className="p-2 bg-red-50 rounded border border-red-200">
 											<div className="text-xs text-gray-600">
-												{new Date(error.thoiGian).toLocaleString('vi-VN')}
+												{formatVietnamDateTime(error.thoiGian)}
 											</div>
 											<div className="text-sm font-medium text-red-800 mt-1">
 												{getActionLabel(error.loaiHanhDong)}

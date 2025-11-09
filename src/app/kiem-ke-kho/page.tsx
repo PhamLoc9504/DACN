@@ -5,6 +5,7 @@ import { type Tables } from '@/lib/supabaseClient';
 import Modal from '@/components/Modal';
 import Button from '@/components/Button';
 import Pagination from '@/components/Pagination';
+import { formatVietnamDate } from '@/lib/dateUtils';
 import { ClipboardCheck, Package, AlertTriangle, CheckCircle, XCircle, Plus, Edit, Trash2, Eye, FileText, Download, Search, Calendar, Filter } from 'lucide-react';
 
 type HangHoa = Tables['HangHoa'];
@@ -313,7 +314,7 @@ export default function KiemKeKhoPage() {
 										onClick={() => openDetail(kk)}
 									>
 										<td className="py-3 px-4 font-medium">{kk.maKK}</td>
-										<td className="py-3 px-4">{new Date(kk.ngayKiemKe).toLocaleDateString('vi-VN')}</td>
+										<td className="py-3 px-4">{formatVietnamDate(kk.ngayKiemKe)}</td>
 										<td className="py-3 px-4">{kk.nguoiKiemKe}</td>
 										<td className="py-3 px-4">{kk.chiTiet?.length || 0}</td>
 										<td className="py-3 px-4">

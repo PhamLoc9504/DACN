@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Pagination from '@/components/Pagination';
 import Modal from '@/components/Modal';
 import Button from '@/components/Button';
+import { formatVietnamDate } from '@/lib/dateUtils';
 import { CheckCircle, AlertTriangle, Package, XCircle } from 'lucide-react';
 
 type Row = {
@@ -404,7 +405,7 @@ export default function XuatHangPage() {
 									onClick={() => openDetailModal(r.SoPX)}
 								>
 									<td className="py-3 px-4 font-medium text-gray-700">{r.SoPX}</td>
-									<td className="py-3 px-4 text-gray-600">{r.NgayXuat ? new Date(r.NgayXuat).toLocaleDateString('vi-VN') : '-'}</td>
+									<td className="py-3 px-4 text-gray-600">{r.NgayXuat ? formatVietnamDate(r.NgayXuat) : '-'}</td>
 									<td className="py-3 px-4 text-[#d47b8a] font-semibold">{r.MaNV || '-'}</td>
 									<td className="py-3 px-4" onClick={(e) => e.stopPropagation()}>
 										<div className="flex gap-2">
@@ -689,7 +690,7 @@ export default function XuatHangPage() {
 								</div>
 								<div className="flex justify-between">
 									<span className="text-gray-500">Ngày xuất:</span>
-									<span>{successData.NgayXuat ? new Date(successData.NgayXuat).toLocaleDateString('vi-VN') : '-'}</span>
+									<span>{successData.NgayXuat ? formatVietnamDate(successData.NgayXuat) : '-'}</span>
 								</div>
 								<div className="flex justify-between">
 									<span className="text-gray-500">Mã NV:</span>

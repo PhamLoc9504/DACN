@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Pagination from '@/components/Pagination';
 import Modal from '@/components/Modal';
 import Button from '@/components/Button';
+import { formatVietnamDate } from '@/lib/dateUtils';
 
 type TaiKhoan = {
 	MaTK: string;
@@ -270,7 +271,7 @@ export default function QuanLyTaiKhoanPage() {
 										</span>
 									</td>
 									<td className="py-3 px-4 text-gray-600 text-xs">
-										{r.NgayTao ? new Date(r.NgayTao).toLocaleDateString('vi-VN') : '-'}
+										{r.NgayTao ? formatVietnamDate(r.NgayTao) : '-'}
 									</td>
 									<td className="py-3 px-4">
 										<div className="flex gap-2">

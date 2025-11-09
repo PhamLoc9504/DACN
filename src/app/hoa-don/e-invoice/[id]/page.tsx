@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
+import { formatVietnamDate } from '@/lib/dateUtils';
 import { FileText, Download, QrCode } from 'lucide-react';
 
 type HoaDon = {
@@ -167,7 +168,7 @@ export default function EInvoicePage() {
 								</div>
 								<div className="flex items-start gap-2">
 									<span className="text-gray-500 min-w-[80px]">Ngày lập:</span>
-									<span>{hoaDon.NgayLap ? new Date(hoaDon.NgayLap).toLocaleDateString('vi-VN') : '-'}</span>
+									<span>{hoaDon.NgayLap ? formatVietnamDate(hoaDon.NgayLap) : '-'}</span>
 								</div>
 								<div className="flex items-start gap-2">
 									<span className="text-gray-500 min-w-[80px]">Trạng thái:</span>

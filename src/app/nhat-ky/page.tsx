@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Pagination from '@/components/Pagination';
 import Button from '@/components/Button';
+import { formatVietnamDateTime } from '@/lib/dateUtils';
 
 type AuditLog = {
 	id: number;
@@ -179,7 +180,7 @@ export default function NhatKyPage() {
 								rows.map((r) => (
 									<tr key={r.id} className="border-b border-[#f5ebe0] hover:bg-[#fce7ec]/40 transition">
 										<td className="py-3 px-4 text-slate-600">
-											{new Date(r.thoiGian).toLocaleString('vi-VN')}
+											{formatVietnamDateTime(r.thoiGian)}
 										</td>
 										<td className="py-3 px-4 font-medium">{r.maNV || r.maTk}</td>
 										<td className="py-3 px-4">{getActionLabel(r.loaiHanhDong)}</td>

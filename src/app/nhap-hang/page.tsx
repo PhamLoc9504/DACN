@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Pagination from '@/components/Pagination';
 import Modal from '@/components/Modal';
 import Button from '@/components/Button';
+import { formatVietnamDate } from '@/lib/dateUtils';
 import { CheckCircle, AlertTriangle, Package, XCircle } from 'lucide-react';
 
 type Row = {
@@ -365,7 +366,7 @@ export default function NhapHangPage() {
 									onClick={() => openDetailModal(r.SoPN)}
 								>
 									<td className="py-3 px-4 font-medium text-gray-700">{r.SoPN}</td>
-									<td className="py-3 px-4 text-gray-600">{r.NgayNhap ? new Date(r.NgayNhap).toLocaleDateString('vi-VN') : '-'}</td>
+									<td className="py-3 px-4 text-gray-600">{r.NgayNhap ? formatVietnamDate(r.NgayNhap) : '-'}</td>
 									<td className="py-3 px-4 text-[#d47b8a] font-semibold">{r.MaNV || '-'}</td>
 									<td className="py-3 px-4 text-gray-700">{r.MaNCC || '-'}</td>
 									<td className="py-3 px-4" onClick={(e) => e.stopPropagation()}>
@@ -634,7 +635,7 @@ export default function NhapHangPage() {
 								</div>
 								<div className="flex justify-between">
 									<span className="text-gray-500">Ngày nhập:</span>
-									<span>{successData.NgayNhap ? new Date(successData.NgayNhap).toLocaleDateString('vi-VN') : '-'}</span>
+									<span>{successData.NgayNhap ? formatVietnamDate(successData.NgayNhap) : '-'}</span>
 								</div>
 								<div className="flex justify-between">
 									<span className="text-gray-500">Mã NV:</span>
