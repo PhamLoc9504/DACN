@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/supabaseClient';
 import { getSessionFromCookies } from '@/lib/session';
 import { logActivity } from '@/lib/auditLog';
+import { createS3Client, DEFAULT_BACKUP_BUCKET } from '@/lib/s3Client';
+import { ListObjectsV2Command, PutObjectCommand } from '@aws-sdk/client-s3';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,22 +45,43 @@ export async function GET(req: Request) {
 		const session = await getSessionFromCookies();
 		if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-		const supabase = getServerSupabase();
 		const { searchParams } = new URL(req.url);
 		const limit = parseInt(searchParams.get('limit') || '30', 10);
 
-		const { data, error } = await supabase
-			.from('backuplog')
-			.select('*')
-			.order('ngaybackup', { ascending: false })
-			.limit(limit);
+		// Liệt kê từ S3 theo prefix backups/
+		const s3 = createS3Client();
+		const list = await s3.send(new ListObjectsV2Command({
+			Bucket: DEFAULT_BACKUP_BUCKET,
+			Prefix: 'backups/',
+			MaxKeys: Math.max(1, Math.min(1000, limit)),
+		}));
 
-		if (error) throw error;
+		const contents = list.Contents || [];
+		// Sắp xếp mới nhất trước
+		contents.sort((a, b) => {
+			const at = a.LastModified?.getTime?.() || 0;
+			const bt = b.LastModified?.getTime?.() || 0;
+			return bt - at;
+		});
 
-		// Chuyển đổi dữ liệu sang camelCase
-		const mappedData = (data || []).map(toCamel);
+		const data = contents.map((obj) => {
+			const key = obj.Key || '';
+			const file = key.split('/').pop() || '';
+			const ma = file.replace('.json', '');
+			return {
+				MaBackup: ma,
+				NgayBackup: obj.LastModified?.toISOString?.() || null,
+				DungLuong: Number(obj.Size || 0),
+				TrangThai: 'Hoàn thành',
+				DuongDan: key,
+				MoTa: 'Backup trên S3',
+				SoLuongBang: null,
+				NguoiTao: null,
+				DuLieuBackup: null,
+			};
+		});
 
-		return NextResponse.json({ ok: true, data: mappedData });
+		return NextResponse.json({ ok: true, data });
 	} catch (e: any) {
 		return NextResponse.json({ error: e.message || 'Lỗi khi lấy danh sách backup' }, { status: 500 });
 	}
@@ -108,101 +131,37 @@ export async function POST(req: Request) {
 
 		const backupSize = Buffer.from(backupJson, 'utf-8').length;
 
-		// Upload lên Supabase Storage (nếu bucket tồn tại)
+		// Upload trực tiếp tới Supabase S3 Gateway (không ghi database)
+		const s3 = createS3Client();
 		const fileName = `${maBackup}.json`;
-		const filePath = `backups/${fileName}`;
-		let uploadData = null;
-		let uploadError = null;
+		const objectKey = `backups/${fileName}`;
 
-		try {
-			const uploadResult = await supabase.storage
-				.from('backups')
-				.upload(filePath, backupJson, {
-					contentType: 'application/json',
-					upsert: false,
-				});
-			
-			uploadData = uploadResult.data;
-			uploadError = uploadResult.error;
-		} catch (err: any) {
-			console.error('Storage upload error:', err);
-			uploadError = err;
-		}
+		await s3.send(new PutObjectCommand({
+			Bucket: DEFAULT_BACKUP_BUCKET,
+			Key: objectKey,
+			Body: Buffer.from(backupJson, 'utf-8'),
+			ContentType: 'application/json',
+		}));
 
-		// Nếu upload thất bại, lưu dữ liệu JSON trực tiếp vào database
-		if (uploadError) {
-			console.warn('Không thể upload lên Storage, lưu dữ liệu vào database:', uploadError.message);
-		}
-
-		// Lưu thông tin backup vào database
-		// Nếu upload thành công: lưu đường dẫn file
-		// Nếu upload thất bại: lưu dữ liệu JSON vào cột DuLieuBackup (nếu cột tồn tại)
-		const insertData: any = {
-			mabackup: maBackup,
-			ngaybackup: now.toISOString(),
-			dungluong: backupSize,
-			trangthai: uploadError ? 'Hoàn thành (không upload)' : 'Hoàn thành',
-			duongdan: uploadData?.path || filePath,
-			mota: moTa || 'Backup tự động',
-			soluongbang: soLuongBang,
-			nguoitao: session.maTk,
-		};
-
-		// Chỉ thêm dulieubackup nếu upload thất bại (cột có thể chưa tồn tại)
-		if (uploadError) {
-			// Thử thêm dulieubackup, nếu cột chưa tồn tại sẽ bị lỗi nhưng vẫn lưu được các trường khác
-			insertData.dulieubackup = backupJson;
-		}
-
-		const { data: backupLog, error: logError } = await supabase
-			.from('backuplog')
-			.insert(insertData)
-			.select()
-			.single();
-
-		// Nếu lỗi do cột dulieubackup chưa tồn tại, thử lại không có cột đó
-		if (logError && logError.message?.includes('dulieubackup')) {
-			console.warn('Cột DuLieuBackup chưa tồn tại, lưu backup không có dữ liệu JSON');
-			delete insertData.dulieubackup;
-			const { data: retryData, error: retryError } = await supabase
-				.from('backuplog')
-				.insert(insertData)
-				.select()
-				.single();
-			
-			if (retryError) throw retryError;
-			
-			// Chuyển đổi dữ liệu sang camelCase
-			const mappedRetryData = toCamel(retryData);
-			
-			return NextResponse.json({
-				ok: true,
-				data: {
-					...mappedRetryData,
-					downloadUrl: null,
-					warning: 'Cột DuLieuBackup chưa tồn tại. Vui lòng chạy SQL migration để thêm cột này.',
-				},
-			});
-		}
-
-		if (logError) throw logError;
-
-		// Ghi log
+		// Ghi audit log ứng dụng (không liên quan bảng backup)
 		await logActivity({
 			action: 'TAO',
-			table: 'backuplog',
 			recordId: maBackup,
 			status: 'THANH_CONG',
 		});
 
-		// Chuyển đổi dữ liệu sang camelCase
-		const mappedBackupLog = toCamel(backupLog);
-
 		return NextResponse.json({
 			ok: true,
 			data: {
-				...mappedBackupLog,
-				downloadUrl: uploadData?.path ? `/api/backup/download?file=${encodeURIComponent(filePath)}` : null,
+				MaBackup: maBackup,
+				NgayBackup: now.toISOString(),
+				DungLuong: backupSize,
+				TrangThai: 'Hoàn thành',
+				DuongDan: objectKey,
+				MoTa: moTa || 'Backup tự động',
+				SoLuongBang: soLuongBang,
+				NguoiTao: session.maTk,
+				downloadUrl: null,
 			},
 		});
 	} catch (e: any) {

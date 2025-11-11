@@ -1,0 +1,86 @@
+name: Daily Supabase DB Backup
+
+on:
+  schedule:
+    - cron: "0 17 * * *" # 00:00 VN (UTC+7)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # How many recent backups to keep in Storage
+  KEEP: 30
+  # Where to store in the bucket
+  S3_PREFIX: db
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out (no code needed, but keeps default behavior)
+        uses: actions/checkout@v4
+
+      - name: Install PostgreSQL client and AWS CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client awscli
+
+      - name: Dump database
+        env:
+          DB_URL: ${{ secrets.DB_URL }}
+        run: |
+          if [ -z "$DB_URL" ]; then
+            echo "Missing DB_URL secret"; exit 1;
+          fi
+          FILE="backup_$(date +%Y%m%d_%H%M%S).dump"
+          echo "Creating dump: $FILE"
+          pg_dump "$DB_URL" -F c -f "$FILE"
+          echo "FILE=$FILE" >> $GITHUB_ENV
+
+      - name: Upload to Supabase Storage (S3 Gateway)
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.S3_REGION }}
+          S3_ENDPOINT: ${{ secrets.S3_ENDPOINT }}
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+        run: |
+          if [ -z "$AWS_ACCESS_KEY_ID" ] || [ -z "$AWS_SECRET_ACCESS_KEY" ] || [ -z "$S3_ENDPOINT" ] || [ -z "$S3_BUCKET" ]; then
+            echo "Missing S3_* secrets"; exit 1;
+          fi
+          aws s3 cp "$FILE" "s3://$S3_BUCKET/$S3_PREFIX/$FILE" --endpoint-url "$S3_ENDPOINT" --acl bucket-owner-full-control
+
+      - name: Prune old backups (keep most recent ${{ env.KEEP }})
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.S3_REGION }}
+          S3_ENDPOINT: ${{ secrets.S3_ENDPOINT }}
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+          KEEP: ${{ env.KEEP }}
+          S3_PREFIX: ${{ env.S3_PREFIX }}
+        run: |
+          set -e
+          echo "Listing objects in s3://$S3_BUCKET/$S3_PREFIX"
+          KEYS=$(aws s3 ls "s3://$S3_BUCKET/$S3_PREFIX/" --endpoint-url "$S3_ENDPOINT" | awk '{print $4}' | sort)
+          if [ -z "$KEYS" ]; then
+            echo "No backups to prune."
+            exit 0
+          fi
+          COUNT=$(printf "%s\n" "$KEYS" | grep -c . || true)
+          echo "Found $COUNT backups."
+          if [ "$COUNT" -le "$KEEP" ]; then
+            echo "Nothing to prune (KEEP=$KEEP)."
+            exit 0
+          fi
+          DEL_NUM=$((COUNT - KEEP))
+          echo "Deleting $DEL_NUM oldest backups..."
+          TO_DELETE=$(printf "%s\n" "$KEYS" | head -n "$DEL_NUM")
+          while IFS= read -r KEY; do
+            [ -z "$KEY" ] && continue
+            echo "Removing s3://$S3_BUCKET/$S3_PREFIX/$KEY"
+            aws s3 rm "s3://$S3_BUCKET/$S3_PREFIX/$KEY" --endpoint-url "$S3_ENDPOINT"
+          done <<< "$TO_DELETE"
+
+

@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/supabaseClient';
 import { getSessionFromCookies } from '@/lib/session';
 import { logActivity } from '@/lib/auditLog';
+import { createS3Client, DEFAULT_BACKUP_BUCKET } from '@/lib/s3Client';
+import { GetObjectCommand } from '@aws-sdk/client-s3';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,49 +20,19 @@ export async function POST(req: Request) {
 
 		const supabase = getServerSupabase();
 
-		// Lấy thông tin backup
-		const { data: backupInfo, error: infoError } = await supabase
-			.from('backuplog')
-			.select('*')
-			.eq('mabackup', maBackup)
-			.single();
-
-		if (infoError || !backupInfo) {
-			return NextResponse.json({ error: 'Không tìm thấy backup' }, { status: 404 });
-		}
-
-		// Download file backup từ storage hoặc database
+		// Tải file backup trực tiếp từ S3
 		let backup: any = null;
-		
-		// Thử download từ storage trước
-		const filePath = backupInfo.duongdan || `backups/${maBackup}.json`;
-		const { data: fileData, error: downloadError } = await supabase.storage
-			.from('backups')
-			.download(filePath);
-
-		if (!downloadError && fileData) {
-			// Parse JSON backup từ storage
-			const text = await fileData.text();
-			backup = JSON.parse(text);
-		} else {
-			// Nếu không có trong storage, thử lấy từ database (cột DuLieuBackup)
-			// Kiểm tra xem cột có tồn tại và có dữ liệu không
-			if (backupInfo.dulieubackup && typeof backupInfo.dulieubackup === 'string') {
-				try {
-					// Parse JSON backup từ database
-					backup = JSON.parse(backupInfo.dulieubackup);
-				} catch (parseError) {
-					return NextResponse.json({ 
-						error: 'Dữ liệu backup trong database không hợp lệ.' 
-					}, { status: 400 });
-				}
-			} else {
-				// Nếu không có trong cả storage và database
-				return NextResponse.json({ 
-					error: 'Không thể tải file backup. Vui lòng:\n1. Kiểm tra Supabase Storage bucket "backups" đã được tạo chưa\n2. Hoặc chạy SQL migration để thêm cột DuLieuBackup vào bảng BackupLog' 
-				}, { status: 404 });
-			}
+		const s3 = createS3Client();
+		const key = `backups/${maBackup}.json`;
+		const resp = await s3.send(new GetObjectCommand({
+			Bucket: DEFAULT_BACKUP_BUCKET,
+			Key: key,
+		}));
+		const text = await resp.Body?.transformToString?.();
+		if (!text) {
+			return NextResponse.json({ error: 'Không tìm thấy file backup trên S3' }, { status: 404 });
 		}
+		backup = JSON.parse(text);
 
 		if (!backup.tables || typeof backup.tables !== 'object') {
 			return NextResponse.json({ error: 'File backup không hợp lệ' }, { status: 400 });
@@ -74,40 +46,37 @@ export async function POST(req: Request) {
 			if (!Array.isArray(tableData)) continue;
 
 			try {
-				const table = tableName.toLowerCase();
+				const table = (tableName as string).toLowerCase();
 
 				// Xóa dữ liệu cũ (nếu có)
-				// Lưu ý: Cần cẩn thận với foreign key constraints
-				// Chỉ xóa nếu không có ràng buộc
 				try {
-					await supabase.from(table).delete().neq('1', '0'); // Xóa tất cả
+					await supabase.from(table).delete().neq('1', '0');
 				} catch (deleteErr) {
 					// Nếu không xóa được, bỏ qua
 					console.warn(`Cannot delete from ${table}:`, deleteErr);
 				}
 
 				// Insert dữ liệu mới
-				if (tableData.length > 0) {
-					const { error: insertError } = await supabase.from(table).insert(tableData);
+				if ((tableData as any[]).length > 0) {
+					const { error: insertError } = await supabase.from(table).insert(tableData as any[]);
 
 					if (insertError) {
-						errors.push({ table: tableName, error: insertError.message });
+						errors.push({ table: tableName as string, error: insertError.message });
 					} else {
-						restoredTables.push(tableName);
+						restoredTables.push(tableName as string);
 					}
 				}
 			} catch (err: any) {
-				errors.push({ table: tableName, error: err.message });
+				errors.push({ table: tableName as string, error: err.message });
 			}
 		}
 
 		// Ghi log
 		await logActivity({
 			action: 'SUA',
-			table: 'backuplog',
 			recordId: maBackup,
 			status: errors.length > 0 ? 'LOI' : 'THANH_CONG',
-			chiTiet: JSON.stringify({ restoredTables, errors }),
+			detail: JSON.stringify({ restoredTables, errors }),
 		});
 
 		return NextResponse.json({
