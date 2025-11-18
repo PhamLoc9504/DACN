@@ -5,7 +5,8 @@ import Pagination from '@/components/Pagination';
 import Modal from '@/components/Modal';
 import Button from '@/components/Button';
 import { formatVietnamDate } from '@/lib/dateUtils';
-import { CheckCircle, AlertTriangle, Package, XCircle } from 'lucide-react';
+import { CheckCircle, AlertTriangle, Package, XCircle, Edit3, Printer, Send, Trash2 } from 'lucide-react';
+import TableActions from '@/components/TableActions';
 
 type Row = {
 	SoPN: string;
@@ -31,7 +32,7 @@ export default function NhapHangPage() {
 	const [editing, setEditing] = useState<Row | null>(null);
 	const [selectedPN, setSelectedPN] = useState<string | null>(null);
 	const [chiTiet, setChiTiet] = useState<ChiTiet[]>([]);
-	const [form, setForm] = useState({ SoPN: '', NgayNhap: '', MaNV: '', MaNCC: '' });
+	const [form, setForm] = useState({ NgayNhap: '', MaNV: '', MaNCC: '' });
 	const [products, setProducts] = useState<Array<{ MaHH: string; TenHH: string | null; DonGia: number | null }>>([]);
 	const [lines, setLines] = useState<Array<{ MaHH: string; SLNhap: number; DGNhap: number }>>([{ MaHH: '', SLNhap: 1, DGNhap: 0 }]);
 	const [q, setQ] = useState('');
@@ -115,7 +116,7 @@ export default function NhapHangPage() {
 
 	function openCreateModal() {
 		setEditing(null);
-		setForm({ SoPN: '', NgayNhap: '', MaNV: '', MaNCC: '' });
+		setForm({ NgayNhap: '', MaNV: '', MaNCC: '' });
 		setLines([{ MaHH: '', SLNhap: 1, DGNhap: 0 }]);
 		setOpen(true);
 	}
@@ -123,7 +124,6 @@ export default function NhapHangPage() {
 	function openEditModal(item: Row) {
 		setEditing(item);
 		setForm({
-			SoPN: item.SoPN,
 			NgayNhap: item.NgayNhap || '',
 			MaNV: item.MaNV || '',
 			MaNCC: item.MaNCC || '',
@@ -370,32 +370,34 @@ export default function NhapHangPage() {
 									<td className="py-3 px-4 text-[#d47b8a] font-semibold">{r.MaNV || '-'}</td>
 									<td className="py-3 px-4 text-gray-700">{r.MaNCC || '-'}</td>
 									<td className="py-3 px-4" onClick={(e) => e.stopPropagation()}>
-										<div className="flex gap-2">
-											<button
-												onClick={() => openEditModal(r)}
-												className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200 transition"
-											>
-												✏️ Sửa
-											</button>
-											<button
-												onClick={() => handlePrint(r.SoPN)}
-												className="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded hover:bg-purple-200 transition"
-											>
-												🖨️ In
-											</button>
-											<button
-												onClick={() => handleSend(r.SoPN)}
-												className="px-2 py-1 text-xs bg-amber-100 text-amber-700 rounded hover:bg-amber-200 transition"
-											>
-												📧 Gửi
-											</button>
-											<button
-												onClick={() => handleDelete(r.SoPN)}
-												className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 transition"
-											>
-												🗑️ Xóa
-											</button>
-										</div>
+										<TableActions
+											actions={[
+												{
+													label: 'Sửa',
+													icon: <Edit3 className="w-3.5 h-3.5" />,
+													onClick: () => openEditModal(r),
+													tone: 'edit',
+												},
+												{
+													label: 'In',
+													icon: <Printer className="w-3.5 h-3.5" />,
+													onClick: () => handlePrint(r.SoPN),
+													tone: 'info',
+												},
+												{
+													label: 'Gửi',
+													icon: <Send className="w-3.5 h-3.5" />,
+													onClick: () => handleSend(r.SoPN),
+													tone: 'warning',
+												},
+												{
+													label: 'Xóa',
+													icon: <Trash2 className="w-3.5 h-3.5" />,
+													onClick: () => handleDelete(r.SoPN),
+													tone: 'danger',
+												},
+											]}
+										/>
 									</td>
 								</tr>
 							))}
@@ -566,7 +568,12 @@ export default function NhapHangPage() {
 						<div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
 							<div className="text-sm text-blue-800 font-medium mb-2">Bạn có chắc chắn muốn nhập hàng?</div>
 							<div className="text-sm text-blue-700 space-y-1">
-								<p><strong>Số PN:</strong> {pendingSubmit.phieu.SoPN}</p>
+								<p>
+									<strong>Số PN:</strong>{' '}
+									{pendingSubmit.phieu?.SoPN?.trim()
+										? pendingSubmit.phieu.SoPN
+										: 'Sẽ được hệ thống tự động sinh (PN01, PN02, ...)'}
+								</p>
 								<p><strong>Ngày nhập:</strong> {pendingSubmit.phieu.NgayNhap || 'Chưa chọn'}</p>
 								<p><strong>Mã NV:</strong> {pendingSubmit.phieu.MaNV || 'Chưa chọn'}</p>
 								<p><strong>Mã NCC:</strong> {pendingSubmit.phieu.MaNCC || 'Chưa chọn'}</p>

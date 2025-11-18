@@ -3,6 +3,7 @@ import { getServerSupabase } from '@/lib/supabaseClient';
 import { getSessionFromCookies } from '@/lib/session';
 import { createHash } from 'crypto';
 import { logCRUD } from '@/lib/auditLog';
+import { hasAnyRole, normalizeUserRole, UserRole } from '@/lib/roles';
 
 function toCamel(row: any) {
 	return {
@@ -22,9 +23,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 		const session = await getSessionFromCookies();
 		if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 		
-		// Chỉ Admin mới được cập nhật tài khoản
-		if (session.vaiTro !== 'Admin') {
-			return NextResponse.json({ error: 'Forbidden - Chỉ Admin mới được cập nhật tài khoản' }, { status: 403 });
+		// Chỉ Quản lý kho được phép chỉnh sửa
+		if (!hasAnyRole(session.vaiTro, [UserRole.ADMIN])) {
+			return NextResponse.json({ error: 'Forbidden - Chỉ Quản lý kho mới được cập nhật tài khoản' }, { status: 403 });
 		}
 
 		const { id } = await params;
@@ -82,7 +83,16 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 			}
 			updateData.manv = manv || null;
 		}
-		if (vaitro !== undefined) updateData.vaitro = vaitro;
+		if (vaitro !== undefined) {
+			const newRole = normalizeUserRole(vaitro);
+			if (newRole === UserRole.ADMIN && session.vaiTro !== UserRole.ADMIN) {
+				return NextResponse.json({ error: 'Không thể nâng cấp tài khoản lên Quản lý kho' }, { status: 403 });
+			}
+			if (newRole !== UserRole.ADMIN && oldData.vaitro === UserRole.ADMIN) {
+				return NextResponse.json({ error: 'Không thể hạ cấp tài khoản Quản lý kho' }, { status: 403 });
+			}
+			updateData.vaitro = newRole;
+		}
 		if (trangthai !== undefined) updateData.trangthai = trangthai;
 
 		const { data, error } = await supabase
@@ -110,7 +120,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
 		if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 		
 		// Chỉ Admin mới được xóa tài khoản
-		if (session.vaiTro !== 'Admin') {
+		if (!hasAnyRole(session.vaiTro, [UserRole.ADMIN])) {
 			return NextResponse.json({ error: 'Forbidden - Chỉ Admin mới được xóa tài khoản' }, { status: 403 });
 		}
 

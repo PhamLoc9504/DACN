@@ -8,9 +8,10 @@ type ModalProps = {
 	onClose: () => void;
 	children: React.ReactNode;
 	className?: string;
+	hideFooter?: boolean;
 };
 
-export default function Modal({ open, title, onClose, children, className }: ModalProps) {
+export default function Modal({ open, title, onClose, children, className, hideFooter }: ModalProps) {
 	if (!open) return null;
 	return (
 		<div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -20,9 +21,11 @@ export default function Modal({ open, title, onClose, children, className }: Mod
 					<div className="font-semibold text-slate-800">{title}</div>
 				</div>
 				<div className="p-5">{children}</div>
-				<div className="px-5 py-3 border-t bg-slate-50/70 rounded-b-2xl flex justify-end gap-2">
-					<button onClick={onClose} className="px-3 py-2 rounded-md border bg-white text-slate-700 hover:bg-slate-50">Đóng</button>
-				</div>
+				{!hideFooter && (
+					<div className="px-5 py-3 border-t bg-slate-50/70 rounded-b-2xl flex justify-end gap-2">
+						<button onClick={onClose} className="px-3 py-2 rounded-md border bg-white text-slate-700 hover:bg-slate-50">Đóng</button>
+					</div>
+				)}
 			</div>
 		</div>
 	);

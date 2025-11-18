@@ -114,7 +114,7 @@ export default function CauHinhHeThongPage() {
 							</div>
 						)}
 						<div className="text-xs text-gray-600 bg-white p-3 rounded-lg border border-gray-200">
-							<strong>Lưu ý:</strong> Cấu hình giờ làm việc sẽ áp dụng cho tất cả người dùng (trừ Admin và Quản lý).
+							<strong>Lưu ý:</strong> Cấu hình giờ làm việc sẽ áp dụng cho tất cả người dùng (trừ Quản lý kho).
 							Để áp dụng thay đổi, cần cập nhật biến môi trường <code>WORKING_HOURS_START</code> và <code>WORKING_HOURS_END</code>.
 						</div>
 					</div>
@@ -189,7 +189,7 @@ export default function CauHinhHeThongPage() {
 				<div className="space-y-3 text-sm text-gray-600">
 					<div>
 						<strong>Giờ làm việc:</strong> Cấu hình thời gian cho phép người dùng truy cập hệ thống.
-						Admin và Quản lý có thể truy cập mọi lúc.
+						Quản lý kho có thể truy cập mọi lúc.
 					</div>
 					<div>
 						<strong>Thông tin hệ thống:</strong> Tên và phiên bản hiển thị trên giao diện người dùng.

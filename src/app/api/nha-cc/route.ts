@@ -11,24 +11,58 @@ function toCamel(row: any) {
 }
 
 export async function GET(req: Request) {
-    try {
-        const { searchParams } = new URL(req.url);
-        const page = parseInt(searchParams.get('page') || '1', 10);
-        const limit = parseInt(searchParams.get('limit') || '10', 10);
-        const q = searchParams.get('q')?.trim().toLowerCase() || '';
-        const from = (page - 1) * limit;
-        const to = from + limit - 1;
-        const supabase = getServerSupabase();
-        let query = supabase.from('nhacc').select('*', { count: 'exact' }).order('mancc', { ascending: true });
-        if (q) {
-            query = query.or(`tenncc.ilike.%${q}%,sdt.ilike.%${q}%`);
-        }
-        const { data, error, count } = await query.range(from, to);
-        if (error) throw error;
-        return NextResponse.json({ data: (data || []).map(toCamel), total: count || 0, page, limit });
-    } catch (e: any) {
-        return NextResponse.json({ error: e.message || 'Server error' }, { status: 500 });
-    }
+	try {
+		const { searchParams } = new URL(req.url);
+		const page = parseInt(searchParams.get('page') || '1', 10);
+		const limit = parseInt(searchParams.get('limit') || '10', 10);
+		const q = searchParams.get('q')?.trim().toLowerCase() || '';
+		const from = (page - 1) * limit;
+		const to = from + limit - 1;
+		const supabase = getServerSupabase();
+		let query = supabase.from('nhacc').select('*', { count: 'exact' }).order('mancc', { ascending: true });
+		if (q) {
+			query = query.or(`tenncc.ilike.%${q}%,sdt.ilike.%${q}%`);
+		}
+		const { data, error, count } = await query.range(from, to);
+		if (error) throw error;
+		return NextResponse.json({ data: (data || []).map(toCamel), total: count || 0, page, limit });
+	} catch (e: any) {
+		return NextResponse.json({ error: e.message || 'Server error' }, { status: 500 });
+	}
 }
 
+export async function POST(req: Request) {
+	try {
+		const body = await req.json();
+		const { MaNCC, TenNCC, DiaChi, SDT } = body || {};
+		if (!MaNCC || !TenNCC) {
+			return NextResponse.json({ error: 'Mã và Tên nhà cung cấp là bắt buộc' }, { status: 400 });
+		}
+
+		const supabase = getServerSupabase();
+		const { data, error } = await supabase
+			.from('nhacc')
+			.insert([
+				{
+					mancc: MaNCC.trim(),
+					tenncc: TenNCC.trim(),
+					diachi: DiaChi || null,
+					sdt: SDT || null,
+				},
+			])
+			.select()
+			.single();
+
+		if (error) {
+			if (error.code === '23505') {
+				return NextResponse.json({ error: 'Mã nhà cung cấp đã tồn tại' }, { status: 409 });
+			}
+			throw error;
+		}
+
+		return NextResponse.json({ data: toCamel(data) });
+	} catch (e: any) {
+		return NextResponse.json({ error: e.message || 'Server error' }, { status: 500 });
+	}
+}
 

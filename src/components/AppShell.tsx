@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import type { AppSession } from '@/lib/session';
+import { getRoleDisplayName } from '@/lib/roles';
 
 export default function AppShell({ children, session }: { children: React.ReactNode; session?: AppSession | null }) {
   const [clientSession, setClientSession] = useState<AppSession | null | undefined>(session);
@@ -99,7 +100,9 @@ export default function AppShell({ children, session }: { children: React.ReactN
                         clientSession.tenDangNhap?.charAt(0)?.toUpperCase() || 'U'
                       )}
                     </span>
-                    <span className="whitespace-nowrap">{clientSession.tenDangNhap} - {clientSession.vaiTro}</span>
+                    <span className="whitespace-nowrap">
+                      {clientSession.tenDangNhap} - {getRoleDisplayName(clientSession.vaiTro)}
+                    </span>
                   </button>
                   <div className={`${menuOpen ? 'opacity-100 visible' : 'opacity-0 invisible pointer-events-none'} transition-opacity absolute right-0 mt-2 w-48 rounded-md shadow-lg border border-[#f3e9dd] bg-[#fffaf6] z-50`}>
                     <div className="py-1 text-sm">

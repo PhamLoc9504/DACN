@@ -3,6 +3,7 @@ import { getServerSupabase } from '@/lib/supabaseClient';
 import { getSessionFromCookies } from '@/lib/session';
 import { createHash } from 'crypto';
 import { logCRUD } from '@/lib/auditLog';
+import { hasAnyRole, normalizeUserRole, UserRole } from '@/lib/roles';
 
 function toCamel(row: any) {
 	return {
@@ -16,14 +17,14 @@ function toCamel(row: any) {
 	};
 }
 
-// GET: Lấy danh sách tài khoản (chỉ Admin và Quản lý)
+// GET: Lấy danh sách tài khoản (chỉ Quản lý kho)
 export async function GET(req: Request) {
 	try {
 		const session = await getSessionFromCookies();
 		if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 		
-		// Chỉ Admin và Quản lý mới được xem danh sách tài khoản
-		if (session.vaiTro !== 'Admin' && session.vaiTro !== 'Quản lý') {
+		// Chỉ Quản lý kho mới được xem danh sách tài khoản
+		if (!hasAnyRole(session.vaiTro, [UserRole.ADMIN])) {
 			return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 		}
 
@@ -74,7 +75,7 @@ export async function POST(req: Request) {
 		if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 		
 		// Chỉ Admin mới được tạo tài khoản
-		if (session.vaiTro !== 'Admin') {
+		if (!hasAnyRole(session.vaiTro, [UserRole.ADMIN])) {
 			return NextResponse.json({ error: 'Forbidden - Chỉ Admin mới được tạo tài khoản' }, { status: 403 });
 		}
 
@@ -124,8 +125,13 @@ export async function POST(req: Request) {
 		// Hash mật khẩu
 		const hash = createHash('sha256').update(matkhau).digest('hex');
 
-		// Tạo mã tài khoản
-		const matk = 'TK' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 6).toUpperCase();
+		// Tạo mã tài khoản (tối đa 10 ký tự để khớp schema)
+		const matk =
+			'TK' +
+			Math.random()
+				.toString(36)
+				.substring(2, 8)
+				.toUpperCase();
 
 		const { data, error } = await supabase
 			.from('taikhoan')
@@ -135,7 +141,7 @@ export async function POST(req: Request) {
 					tendangnhap: tendangnhap,
 					matkhau: hash,
 					manv: manv || null,
-					vaitro: vaitro || 'Nhân viên kho',
+					vaitro: normalizeUserRole(vaitro, UserRole.WAREHOUSE_STAFF),
 					trangthai: 'Hoạt động',
 				},
 			])

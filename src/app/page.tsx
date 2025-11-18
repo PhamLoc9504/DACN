@@ -51,7 +51,11 @@ export default function Home() {
       const invoices = (hdRes.data || []) as Tables["HoaDon"][];
       const tongHangHoa = hang.length;
       const tongTonKho = hang.reduce((s, x) => s + (x.SoLuongTon || 0), 0);
-      const tongDoanhThu = invoices.reduce((s, x) => s + (x.TongTien || 0), 0);
+      const tongDoanhThu = invoices.reduce((s, x) => {
+        if (x.SoPX) return s + (x.TongTien || 0);
+        if (x.SoPN) return s - (x.TongTien || 0);
+        return s + (x.TongTien || 0);
+      }, 0);
       setKpi({ tongHangHoa, tongTonKho, tongDoanhThu });
       setSapHet(hang.filter((x) => (x.SoLuongTon || 0) <= 5));
 
@@ -85,7 +89,7 @@ export default function Home() {
         return {
           month: label,
           xuat: monthXuat.get(k) || 0,
-          nhap: monthNhap.get(k) || 0,
+          nhap: -(monthNhap.get(k) || 0),
         };
       });
       setFlowData(flow);

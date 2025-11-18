@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/supabaseClient';
 import { getSessionFromCookies } from '@/lib/session';
+import { hasAnyRole, UserRole } from '@/lib/roles';
 
 function toCamel(row: any) {
 	return {
@@ -24,8 +25,8 @@ export async function GET(req: Request) {
 		const session = await getSessionFromCookies();
 		if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 		
-		// Chỉ Admin và Quản lý mới được xem log
-		if (session.vaiTro !== 'Admin' && session.vaiTro !== 'Quản lý') {
+		// Chỉ Quản lý kho mới được xem log
+		if (!hasAnyRole(session.vaiTro, [UserRole.ADMIN])) {
 			return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 		}
 

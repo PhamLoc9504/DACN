@@ -5,7 +5,8 @@ import Pagination from '@/components/Pagination';
 import Modal from '@/components/Modal';
 import Button from '@/components/Button';
 import { formatVietnamDate } from '@/lib/dateUtils';
-import { CheckCircle, AlertTriangle, Package, XCircle } from 'lucide-react';
+import { CheckCircle, AlertTriangle, Package, XCircle, Edit3, Printer, Send, Trash2 } from 'lucide-react';
+import TableActions from '@/components/TableActions';
 
 type Row = {
 	SoPX: string;
@@ -30,7 +31,7 @@ export default function XuatHangPage() {
 	const [editing, setEditing] = useState<Row | null>(null);
 	const [selectedPX, setSelectedPX] = useState<string | null>(null);
 	const [chiTiet, setChiTiet] = useState<ChiTiet[]>([]);
-	const [form, setForm] = useState({ SoPX: '', NgayXuat: '', MaNV: '' });
+	const [form, setForm] = useState({ NgayXuat: '', MaNV: '' });
 	const [products, setProducts] = useState<Array<{ MaHH: string; TenHH: string | null; DonGia: number | null; SoLuongTon: number | null }>>([]);
 	const [lines, setLines] = useState<Array<{ MaHH: string; SLXuat: number; DonGia: number }>>([{ MaHH: '', SLXuat: 1, DonGia: 0 }]);
 	const [q, setQ] = useState('');
@@ -120,7 +121,7 @@ export default function XuatHangPage() {
 
 	function openCreateModal() {
 		setEditing(null);
-		setForm({ SoPX: '', NgayXuat: '', MaNV: '' });
+		setForm({ NgayXuat: '', MaNV: '' });
 		setLines([{ MaHH: '', SLXuat: 1, DonGia: 0 }]);
 		setOpen(true);
 	}
@@ -128,7 +129,6 @@ export default function XuatHangPage() {
 	function openEditModal(item: Row) {
 		setEditing(item);
 		setForm({
-			SoPX: item.SoPX,
 			NgayXuat: item.NgayXuat || '',
 			MaNV: item.MaNV || '',
 		});
@@ -408,32 +408,34 @@ export default function XuatHangPage() {
 									<td className="py-3 px-4 text-gray-600">{r.NgayXuat ? formatVietnamDate(r.NgayXuat) : '-'}</td>
 									<td className="py-3 px-4 text-[#d47b8a] font-semibold">{r.MaNV || '-'}</td>
 									<td className="py-3 px-4" onClick={(e) => e.stopPropagation()}>
-										<div className="flex gap-2">
-											<button
-												onClick={() => openEditModal(r)}
-												className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200 transition"
-											>
-												✏️ Sửa
-											</button>
-											<button
-												onClick={() => handlePrint(r.SoPX)}
-												className="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded hover:bg-purple-200 transition"
-											>
-												🖨️ In
-											</button>
-											<button
-												onClick={() => handleSend(r.SoPX)}
-												className="px-2 py-1 text-xs bg-amber-100 text-amber-700 rounded hover:bg-amber-200 transition"
-											>
-												📧 Gửi
-											</button>
-											<button
-												onClick={() => handleDelete(r.SoPX)}
-												className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 transition"
-											>
-												🗑️ Xóa
-											</button>
-										</div>
+										<TableActions
+											actions={[
+												{
+													label: 'Sửa',
+													icon: <Edit3 className="w-3.5 h-3.5" />,
+													onClick: () => openEditModal(r),
+													tone: 'edit',
+												},
+												{
+													label: 'In',
+													icon: <Printer className="w-3.5 h-3.5" />,
+													onClick: () => handlePrint(r.SoPX),
+													tone: 'info',
+												},
+												{
+													label: 'Gửi',
+													icon: <Send className="w-3.5 h-3.5" />,
+													onClick: () => handleSend(r.SoPX),
+													tone: 'warning',
+												},
+												{
+													label: 'Xóa',
+													icon: <Trash2 className="w-3.5 h-3.5" />,
+													onClick: () => handleDelete(r.SoPX),
+													tone: 'danger',
+												},
+											]}
+										/>
 									</td>
 								</tr>
 							))}
@@ -622,7 +624,12 @@ export default function XuatHangPage() {
 						<div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
 							<div className="text-sm text-blue-800 font-medium mb-2">Bạn có chắc chắn muốn xuất hàng?</div>
 							<div className="text-sm text-blue-700 space-y-1">
-								<p><strong>Số PX:</strong> {pendingSubmit.phieu.SoPX}</p>
+								<p>
+									<strong>Số PX:</strong>{' '}
+									{pendingSubmit.phieu?.SoPX?.trim()
+										? pendingSubmit.phieu.SoPX
+										: 'Sẽ được hệ thống tự động sinh (PX01, PX02, ...)'}
+								</p>
 								<p><strong>Ngày xuất:</strong> {pendingSubmit.phieu.NgayXuat || 'Chưa chọn'}</p>
 								<p><strong>Mã NV:</strong> {pendingSubmit.phieu.MaNV || 'Chưa chọn'}</p>
 								<p><strong>Số lượng hàng hóa:</strong> {pendingSubmit.chitiet.length}</p>

@@ -7,6 +7,7 @@ import Button from '@/components/Button';
 import { supabase, type Tables } from '@/lib/supabaseClient';
 import { formatVietnamDateTime, formatVietnamDate } from '@/lib/dateUtils';
 import { CreditCard, Wallet, QrCode, Search, Truck, FileText, Download, Eye, Edit, Trash2, Send, TrendingUp, DollarSign, Calendar, MoreVertical, Settings, CheckCircle, AlertTriangle } from 'lucide-react';
+import { UserRole, hasAnyRole, resolveUserRole } from '@/lib/roles';
 
 const TRANGTHAI = ['', 'Chưa thanh toán', 'Đã thanh toán', 'Đang xử lý'];
 
@@ -54,7 +55,7 @@ export default function HoaDonPage() {
 		GhiChu: '',
 	});
 
-	const [me, setMe] = useState<{ maNV: string; vaiTro?: string } | null>(null);
+	const [me, setMe] = useState<{ maNV: string; vaiTro?: UserRole } | null>(null);
     const [pnOptions, setPnOptions] = useState<{ SoPN: string; MaNCC?: string }[]>([]);
     const [pnMap, setPnMap] = useState<Record<string, { MaNCC?: string }>>({});
     const [pxOptions, setPxOptions] = useState<{ SoPX: string }[]>([]);
@@ -68,6 +69,8 @@ export default function HoaDonPage() {
 	const [paymentDeadlineExpired, setPaymentDeadlineExpired] = useState(false);
 	const [invoiceItems, setInvoiceItems] = useState<any[]>([]);
 	const [paymentResult, setPaymentResult] = useState<any>(null);
+	const [customerOptions, setCustomerOptions] = useState<Array<{ MaKH: string; TenKH: string | null }>>([]);
+	const canManageInvoices = hasAnyRole(me?.vaiTro, [UserRole.ADMIN]);
 
     useEffect(() => {
 		loadData();
@@ -82,7 +85,7 @@ export default function HoaDonPage() {
 					fetch('/api/phieu-xuat?limit=10000&page=1', { credentials: 'include' }).then((r) => r.json()),
 					fetch('/api/hoa-don?page=1&limit=10000', { credentials: 'include' }).then((r) => r.json()),
 				]);
-				if (meRes) setMe({ maNV: meRes.maNV || '', vaiTro: meRes.vaiTro });
+				if (meRes) setMe({ maNV: meRes.maNV || '', vaiTro: resolveUserRole(meRes.vaiTro) });
                 const invoices: Tables['HoaDon'][] = (hdRes?.data || []) as Tables['HoaDon'][];
                 const usedPN = new Set((invoices || []).map((x) => x.SoPN).filter(Boolean) as string[]);
                 const usedPX = new Set((invoices || []).map((x) => x.SoPX).filter(Boolean) as string[]);
@@ -100,6 +103,30 @@ export default function HoaDonPage() {
         }
         loadAux();
     }, []);
+
+	useEffect(() => {
+		let ignore = false;
+		async function loadCustomers() {
+			try {
+				const res = await fetch('/api/khach-hang?limit=1000&page=1', {
+					credentials: 'include',
+				}).then((r) => r.json());
+				if (!ignore && res?.data) {
+					const list = (res.data || []).map((kh: any) => ({
+						MaKH: kh.MaKH,
+						TenKH: kh.TenKH || null,
+					}));
+					setCustomerOptions(list);
+				}
+			} catch {
+				// ignore load errors
+			}
+		}
+		loadCustomers();
+		return () => {
+			ignore = true;
+		};
+	}, []);
 
 	async function loadData() {
 		setLoading(true);
@@ -326,6 +353,10 @@ export default function HoaDonPage() {
             alert('Vui lòng chọn Số phiếu xuất.');
             return;
         }
+		if (voucherType !== 'PN' && !editing.MaKH) {
+			alert('Vui lòng chọn khách hàng.');
+			return;
+		}
         const payload: any = { ...editing };
         if (voucherType === 'PN') payload.SoPX = null;
         if (voucherType === 'PX') payload.SoPN = null;
@@ -683,8 +714,8 @@ export default function HoaDonPage() {
 														<div className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-20">
 															<div className="py-1">
 
-																{/* Sửa - chỉ khi chưa thanh toán hoặc Admin/Quản lý */}
-																{(r.TrangThai !== 'Đã thanh toán' || me?.vaiTro === 'Admin' || me?.vaiTro === 'Quản lý') && (
+																{/* Sửa - chỉ khi chưa thanh toán hoặc có quyền quản lý */}
+																{(r.TrangThai !== 'Đã thanh toán' || canManageInvoices) && (
 																	<button
 																		onClick={() => {
 																			setOpenMenuId(null);
@@ -697,8 +728,8 @@ export default function HoaDonPage() {
 																	</button>
 																)}
 
-																{/* Cập nhật trạng thái - chỉ Admin/Quản lý */}
-																{(me?.vaiTro === 'Admin' || me?.vaiTro === 'Quản lý') && (
+																{/* Cập nhật trạng thái - chỉ vai trò quản lý */}
+																{canManageInvoices && (
 																	<button
 																		onClick={() => {
 																			setOpenMenuId(null);
@@ -711,8 +742,8 @@ export default function HoaDonPage() {
 																	</button>
 																)}
 
-																{/* Xóa - chỉ khi chưa thanh toán và Admin/Quản lý */}
-																{r.TrangThai !== 'Đã thanh toán' && (me?.vaiTro === 'Admin' || me?.vaiTro === 'Quản lý') && (
+																{/* Xóa - chỉ khi chưa thanh toán và có quyền quản lý */}
+																{r.TrangThai !== 'Đã thanh toán' && canManageInvoices && (
 																	<button
 																		onClick={() => {
 																			setOpenMenuId(null);
@@ -772,12 +803,25 @@ export default function HoaDonPage() {
                                     </>
                                 ) : (
                                     <>
-                                        <label className="block text-sm mb-1 text-gray-500">Mã KH</label>
-										<input
+                                        <label className="block text-sm mb-1 text-gray-500">Khách hàng</label>
+										<select
 											className="w-full bg-[#fce7ec] border border-[#f9dfe3] rounded-xl px-3 py-2"
 											value={editing.MaKH}
 											onChange={(e) => setEditing({ ...editing, MaKH: e.target.value })}
-										/>
+										>
+											<option value="">-- Chọn khách hàng --</option>
+											{!customerOptions.some((kh) => kh.MaKH === editing.MaKH) && editing.MaKH && (
+												<option value={editing.MaKH}>{editing.MaKH} (không có trong danh sách)</option>
+											)}
+											{customerOptions.map((kh) => (
+												<option key={kh.MaKH} value={kh.MaKH}>
+													{kh.MaKH} - {kh.TenKH || 'Không tên'}
+												</option>
+											))}
+										</select>
+										{customerOptions.length === 0 && (
+											<p className="text-xs text-gray-500 mt-1">Không tìm thấy dữ liệu khách hàng. Hãy thêm khách hàng trước.</p>
+										)}
                                     </>
                                 )}
                             </div>

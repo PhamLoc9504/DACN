@@ -1,6 +1,7 @@
 import { getSessionFromCookies } from '@/lib/session';
 import ProfileAvatar from '@/components/ProfileAvatar';
 import { Shield } from 'lucide-react';
+import { getRoleBadgeColor, getRoleDisplayName } from '@/lib/roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,8 +18,8 @@ export default async function ProfilePage() {
     }
 
     const avatar = `/uploads/avatars/${session.maTk}.png`;
-    const roleDisplayName = session.vaiTro === 'admin' ? 'Quản trị viên' : 'Nhân viên';
-    const roleColor = session.vaiTro === 'admin' ? '#d47b8a' : '#b8956f';
+    const roleDisplayName = getRoleDisplayName(session.vaiTro);
+    const roleColor = getRoleBadgeColor(session.vaiTro);
 
     return (
         <div className="min-h-screen bg-[#faf8f6] py-10 px-4">

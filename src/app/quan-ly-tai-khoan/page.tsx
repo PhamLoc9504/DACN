@@ -5,6 +5,13 @@ import Pagination from '@/components/Pagination';
 import Modal from '@/components/Modal';
 import Button from '@/components/Button';
 import { formatVietnamDate } from '@/lib/dateUtils';
+import {
+	ASSIGNABLE_ROLES,
+	ROLE_BADGE_COLORS,
+	ROLE_DISPLAY_NAME,
+	UserRole,
+	resolveUserRole,
+} from '@/lib/roles';
 
 type TaiKhoan = {
 	MaTK: string;
@@ -37,7 +44,7 @@ export default function QuanLyTaiKhoanPage() {
 		tendangnhap: '',
 		matkhau: '',
 		manv: '',
-		vaitro: 'Nhân viên kho',
+		vaitro: UserRole.WAREHOUSE_STAFF,
 		trangthai: 'Hoạt động',
 	});
 
@@ -83,7 +90,7 @@ export default function QuanLyTaiKhoanPage() {
 				tendangnhap: item.TenDangNhap,
 				matkhau: '',
 				manv: item.MaNV || '',
-				vaitro: item.VaiTro,
+				vaitro: resolveUserRole(item.VaiTro) ?? UserRole.WAREHOUSE_STAFF,
 				trangthai: item.TrangThai,
 			});
 		} else {
@@ -92,7 +99,7 @@ export default function QuanLyTaiKhoanPage() {
 				tendangnhap: '',
 				matkhau: '',
 				manv: '',
-				vaitro: 'Nhân viên kho',
+				vaitro: UserRole.WAREHOUSE_STAFF,
 				trangthai: 'Hoạt động',
 			});
 		}
@@ -199,9 +206,11 @@ export default function QuanLyTaiKhoanPage() {
 							}}
 						>
 							<option value="">Tất cả</option>
-							<option value="Admin">Admin</option>
-							<option value="Quản lý">Quản lý</option>
-							<option value="Nhân viên kho">Nhân viên kho</option>
+							{ASSIGNABLE_ROLES.map((role) => (
+								<option key={role} value={role}>
+									{ROLE_DISPLAY_NAME[role]}
+								</option>
+							))}
 						</select>
 					</div>
 					<div>
@@ -255,13 +264,22 @@ export default function QuanLyTaiKhoanPage() {
 									<td className="py-3 px-4">{r.TenDangNhap}</td>
 									<td className="py-3 px-4 text-gray-600">{r.MaNV || '-'}</td>
 									<td className="py-3 px-4">
-										<span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-											r.VaiTro === 'Admin' ? 'bg-red-100 text-red-700' :
-											r.VaiTro === 'Quản lý' ? 'bg-blue-100 text-blue-700' :
-											'bg-gray-100 text-gray-700'
-										}`}>
-											{r.VaiTro}
-										</span>
+										{(() => {
+											const resolvedRole = resolveUserRole(r.VaiTro);
+											const badgeColor = resolvedRole ? ROLE_BADGE_COLORS[resolvedRole] : '#9ca3af';
+											const badgeLabel = resolvedRole ? ROLE_DISPLAY_NAME[resolvedRole] : r.VaiTro;
+											return (
+												<span
+													className="px-2 py-1 rounded-full text-xs font-semibold"
+													style={{
+														color: badgeColor,
+														backgroundColor: `${badgeColor}1a`,
+													}}
+												>
+													{badgeLabel}
+												</span>
+											);
+										})()}
 									</td>
 									<td className="py-3 px-4">
 										<span className={`px-2 py-1 rounded-full text-xs font-semibold ${
@@ -310,7 +328,7 @@ export default function QuanLyTaiKhoanPage() {
 			</div>
 
 			{/* --- Modal tạo/sửa --- */}
-			<Modal show={showModal} onClose={closeModal} title={editing ? 'Sửa tài khoản' : 'Tạo tài khoản mới'}>
+			<Modal open={showModal} onClose={closeModal} title={editing ? 'Sửa tài khoản' : 'Tạo tài khoản mới'}>
 				<form onSubmit={handleSubmit} className="space-y-4">
 					{!editing && (
 						<div>
@@ -356,12 +374,14 @@ export default function QuanLyTaiKhoanPage() {
 						<select
 							className="w-full bg-[#fce7ec] border border-[#f9dfe3] rounded-xl px-3 py-2 text-gray-800 focus:ring-2 focus:ring-[#d47b8a] outline-none transition"
 							value={formData.vaitro}
-							onChange={(e) => setFormData({ ...formData, vaitro: e.target.value })}
+							onChange={(e) => setFormData({ ...formData, vaitro: e.target.value as UserRole })}
 							required
 						>
-							<option value="Nhân viên kho">Nhân viên kho</option>
-							<option value="Quản lý">Quản lý</option>
-							<option value="Admin">Admin</option>
+							{ASSIGNABLE_ROLES.map((role) => (
+								<option key={role} value={role}>
+									{ROLE_DISPLAY_NAME[role]}
+								</option>
+							))}
 						</select>
 					</div>
 					<div>
