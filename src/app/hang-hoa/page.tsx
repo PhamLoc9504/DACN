@@ -373,26 +373,23 @@ export default function HangHoaPage() {
                   ))}
 
                 {!loading && filtered.map((r) => (
-                  <tr key={r.MaHH} className="border-b border-[#f5ebe0] hover:bg-[#fff0f4] transition">
+                  <tr
+                    key={r.MaHH}
+                    className="border-b border-[#f5ebe0] hover:bg-[#fff0f4] transition cursor-pointer"
+                    onClick={() => {
+                      setMode('edit');
+                      setForm(r as any);
+                      setViewOnly(true);
+                      setOpen(true);
+                    }}
+                  >
                     <td className="py-4 px-6 font-medium">{r.MaHH}</td>
                     <td className="py-4 px-6">{r.TenHH}</td>
                     <td className="py-4 px-6 text-gray-600">{r.MaLoai}</td>
                     <td className="py-4 px-6 text-[#b03f5a] font-semibold">{(r.DonGia || 0).toLocaleString('vi-VN')} ₫</td>
                     <td className={`py-4 px-6 font-semibold ${ (r.SoLuongTon || 0) <= LOW_THRESHOLD ? 'text-red-500' : 'text-green-600' }`}>{r.SoLuongTon}</td>
                     <td className="py-4 px-6 text-gray-700">{r.DVT}</td>
-                    <td className="py-4 px-6 text-right">
-                      <div className="inline-flex items-center gap-2">
-                        <button title="Giảm tồn" className="px-3 py-1 rounded-md border hover:bg-white" onClick={() => adjustStock(r.MaHH, -1)}>-1</button>
-                        <button title="Tăng tồn" className="px-3 py-1 rounded-md border hover:bg-white" onClick={() => adjustStock(r.MaHH, 1)}>+1</button>
-                        <Button
-                          variant="secondary"
-                          onClick={() => { setMode('edit'); setViewOnly(false); setForm(r as any); setOpen(true); }}
-                        >
-                          Sửa
-                        </Button>
-                        <Button variant="danger" onClick={() => handleDelete(r.MaHH)}>Xóa</Button>
-                      </div>
-                    </td>
+                    <td className="py-4 px-6 text-right text-xs text-gray-400">Nhấn để xem</td>
                   </tr>
                 ))}
 
@@ -532,9 +529,29 @@ export default function HangHoaPage() {
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t mt-4">
-                <Button type="button" variant="secondary" onClick={() => setOpen(false)}>Đóng</Button>
-                {!viewOnly && (<Button type="submit">{mode === 'create' ? 'Tạo' : 'Lưu'}</Button>)}
+              <div className="flex justify-between items-center gap-3 pt-4 border-t mt-4">
+                {viewOnly && (
+                  <div className="flex flex-wrap gap-2 text-sm">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => setViewOnly(false)}
+                    >
+                      Sửa
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="danger"
+                      onClick={() => form.MaHH && handleDelete(form.MaHH)}
+                    >
+                      Xóa
+                    </Button>
+                  </div>
+                )}
+                <div className="flex gap-3 ml-auto">
+                  <Button type="button" variant="secondary" onClick={() => setOpen(false)}>Đóng</Button>
+                  {!viewOnly && (<Button type="submit">{mode === 'create' ? 'Tạo' : 'Lưu'}</Button>)}
+                </div>
               </div>
             </form>
           </Modal>

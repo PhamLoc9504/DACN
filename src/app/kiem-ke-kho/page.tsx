@@ -63,23 +63,25 @@ export default function KiemKeKhoPage() {
 	async function loadData() {
 		setLoading(true);
 		try {
-			// Mock data - trong thực tế sẽ gọi API
-			const mockData: KiemKe[] = [
-				{
-					id: '1',
-					maKK: 'KK001',
-					ngayKiemKe: new Date().toISOString().split('T')[0],
-					nguoiKiemKe: 'NV001',
-					trangThai: 'dang-tien-hanh',
-					ghiChu: 'Kiểm kê định kỳ tháng 11',
-					chiTiet: [
-						{ mahh: 'HH001', tenhh: 'Sản phẩm A', soLuongSach: 100, soLuongThucTe: 98, chenhLech: -2, lyDo: 'Hao hụt' },
-						{ mahh: 'HH002', tenhh: 'Sản phẩm B', soLuongSach: 50, soLuongThucTe: 52, chenhLech: 2, lyDo: 'Nhập thêm' },
-					],
-				},
-			];
-			setKiemKeList(mockData);
-			setTotal(mockData.length);
+			const params = new URLSearchParams();
+			params.set('page', String(page));
+			params.set('limit', String(limit));
+			if (q) params.set('q', q);
+			if (trangThai) params.set('trangThai', trangThai);
+			const res = await fetch(`/api/kiem-ke?${params.toString()}`, { credentials: 'include' });
+			const data = await res.json();
+			if (!res.ok) throw new Error(data.error || 'Không tải được dữ liệu kiểm kê');
+			const list: KiemKe[] = (data.data || []).map((row: any) => ({
+				id: row.id,
+				maKK: row.maKK,
+				ngayKiemKe: row.ngayKiemKe,
+				nguoiKiemKe: row.nguoiKiemKe,
+				trangThai: row.trangThai,
+				ghiChu: row.ghiChu,
+				chiTiet: [],
+			}));
+			setKiemKeList(list);
+			setTotal(data.total || list.length);
 		} catch (err: any) {
 			alert(err.message || 'Có lỗi xảy ra');
 		} finally {
@@ -179,11 +181,40 @@ export default function KiemKeKhoPage() {
 			alert('Vui lòng thêm ít nhất một chi tiết kiểm kê');
 			return;
 		}
-		// TODO: Gọi API để lưu
-		alert('Lưu thành công!');
-		setOpenModal(false);
-		resetForm();
-		loadData();
+		try {
+			const payload = {
+				maKK: form.maKK,
+				ngayKiemKe: form.ngayKiemKe,
+				nguoiKiemKe: form.nguoiKiemKe,
+				trangThai: form.trangThai,
+				ghiChu: form.ghiChu,
+				chiTiet: chiTietKiemKe,
+			};
+			let res;
+			if (editing) {
+				res = await fetch(`/api/kiem-ke/${editing.id}`, {
+					method: 'PUT',
+					headers: { 'Content-Type': 'application/json' },
+					credentials: 'include',
+					body: JSON.stringify(payload),
+				});
+			} else {
+				res = await fetch('/api/kiem-ke', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					credentials: 'include',
+					body: JSON.stringify(payload),
+				});
+			}
+			const data = await res.json();
+			if (!res.ok) throw new Error(data.error || 'Lưu phiếu kiểm kê thất bại');
+			alert('Lưu phiếu kiểm kê thành công');
+			setOpenModal(false);
+			resetForm();
+			loadData();
+		} catch (err: any) {
+			alert(err.message || 'Có lỗi xảy ra khi lưu phiếu');
+		}
 	}
 
 	function resetForm() {
@@ -233,8 +264,59 @@ export default function KiemKeKhoPage() {
 		return true;
 	});
 
+	const tongPhieu = kiemKeList.length;
+	const tongDangTienHanh = kiemKeList.filter((kk) => kk.trangThai === 'dang-tien-hanh').length;
+	const tongHoanThanh = kiemKeList.filter((kk) => kk.trangThai === 'hoan-thanh').length;
+	const tongHuyBo = kiemKeList.filter((kk) => kk.trangThai === 'huy-bo').length;
+	const tongChenhLechSelected = selectedKK
+		? selectedKK.chiTiet?.reduce((sum, ct) => sum + (ct.chenhLech || 0), 0)
+		: 0;
+
 	return (
 		<div className="space-y-6 bg-[#f9f5f1] min-h-screen p-6 text-gray-800">
+			{/* KPI Cards */}
+			<div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+				<div className="bg-gradient-to-br from-pink-500 to-rose-500 text-white rounded-2xl p-4 shadow-md flex items-center justify-between">
+					<div>
+						<div className="text-xs uppercase tracking-wide opacity-80 mb-1">Tổng phiếu kiểm kê</div>
+						<div className="text-2xl font-bold">{tongPhieu}</div>
+					</div>
+					<div className="flex items-center justify-center h-10 w-10 rounded-full bg-white/20">
+						<ClipboardCheck className="w-5 h-5" />
+					</div>
+				</div>
+				<div className="bg-gradient-to-br from-amber-400 to-orange-500 text-white rounded-2xl p-4 shadow-md flex items-center justify-between">
+					<div>
+						<div className="text-xs uppercase tracking-wide opacity-80 mb-1">Đang tiến hành</div>
+						<div className="text-2xl font-bold">{tongDangTienHanh}</div>
+						<div className="text-xs opacity-80 mt-1">Hoàn thành: {tongHoanThanh}</div>
+					</div>
+					<div className="flex items-center justify-center h-10 w-10 rounded-full bg-white/20">
+						<AlertTriangle className="w-5 h-5" />
+					</div>
+				</div>
+				<div className="bg-gradient-to-br from-emerald-400 to-green-500 text-white rounded-2xl p-4 shadow-md flex items-center justify-between">
+					<div>
+						<div className="text-xs uppercase tracking-wide opacity-80 mb-1">Đã hoàn thành</div>
+						<div className="text-2xl font-bold">{tongHoanThanh}</div>
+						<div className="text-xs opacity-80 mt-1">Hủy bỏ: {tongHuyBo}</div>
+					</div>
+					<div className="flex items-center justify-center h-10 w-10 rounded-full bg-white/20">
+						<CheckCircle className="w-5 h-5" />
+					</div>
+				</div>
+				<div className="bg-gradient-to-br from-slate-700 to-slate-900 text-white rounded-2xl p-4 shadow-md flex items-center justify-between">
+					<div>
+						<div className="text-xs uppercase tracking-wide opacity-80 mb-1">Tổng chênh lệch (phiếu đang xem)</div>
+						<div className="text-2xl font-bold">{selectedKK ? (tongChenhLechSelected > 0 ? `+${tongChenhLechSelected}` : tongChenhLechSelected) : '--'}</div>
+						<div className="text-[11px] opacity-70 mt-1">Chỉ tính trên phiếu đang mở chi tiết</div>
+					</div>
+					<div className="flex items-center justify-center h-10 w-10 rounded-full bg-white/10">
+						<Package className="w-5 h-5" />
+					</div>
+				</div>
+			</div>
+
 			<div className="bg-white rounded-2xl p-6 shadow-sm border border-[#f5ebe0]">
 				{/* Header */}
 				<div className="flex items-center justify-between mb-6">
@@ -363,79 +445,101 @@ export default function KiemKeKhoPage() {
 			</div>
 
 			{/* Modal: Create/Edit */}
-			<Modal open={openModal} onClose={() => setOpenModal(false)} title={editing ? 'Sửa phiếu kiểm kê' : 'Tạo phiếu kiểm kê mới'}>
-				<div className="space-y-4">
-					<div className="grid grid-cols-2 gap-4">
-						<div>
-							<label className="block text-sm mb-1 text-gray-500">Mã kiểm kê *</label>
-							<input
-								className="w-full bg-[#fce7ec] border border-[#f9dfe3] rounded-xl px-3 py-2 focus:ring-2 focus:ring-[#d47b8a] outline-none transition"
-								value={form.maKK}
-								onChange={(e) => setForm({ ...form, maKK: e.target.value })}
-								required
-								disabled={!!editing}
+			<Modal
+				open={openModal}
+				onClose={() => setOpenModal(false)}
+				title={editing ? 'Sửa phiếu kiểm kê' : 'Tạo phiếu kiểm kê mới'}
+			>
+				<div className="space-y-5">
+					{/* Thông tin chung */}
+					<div className="rounded-2xl border border-slate-100 bg-slate-50/60 p-4">
+						<div className="mb-3 flex items-center justify-between">
+							<p className="text-sm font-semibold text-slate-800 flex items-center gap-2">
+								<ClipboardCheck className="w-4 h-4 text-sky-500" />
+								Thông tin phiếu kiểm kê
+							</p>
+							<span className="text-[11px] px-2 py-1 rounded-full bg-sky-100 text-sky-700 font-medium">
+								{editing ? 'Chỉnh sửa' : 'Phiếu mới'}
+							</span>
+						</div>
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+							<div>
+								<label className="block text-xs font-medium text-slate-600 mb-1">Mã kiểm kê *</label>
+								<input
+									className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:ring-2 focus:ring-sky-200 outline-none transition"
+									value={form.maKK}
+									onChange={(e) => setForm({ ...form, maKK: e.target.value })}
+									required
+									disabled={!!editing}
+								/>
+							</div>
+							<div>
+								<label className="block text-xs font-medium text-slate-600 mb-1">Ngày kiểm kê *</label>
+								<input
+									type="date"
+									className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:ring-2 focus:ring-sky-200 outline-none transition"
+									value={form.ngayKiemKe}
+									onChange={(e) => setForm({ ...form, ngayKiemKe: e.target.value })}
+									required
+								/>
+							</div>
+							<div>
+								<label className="block text-xs font-medium text-slate-600 mb-1">Người kiểm kê *</label>
+								<input
+									className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:ring-2 focus:ring-sky-200 outline-none transition"
+									value={form.nguoiKiemKe}
+									onChange={(e) => setForm({ ...form, nguoiKiemKe: e.target.value })}
+									required
+								/>
+							</div>
+							<div>
+								<label className="block text-xs font-medium text-slate-600 mb-1">Trạng thái</label>
+								<select
+									className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:ring-2 focus:ring-sky-200 outline-none transition"
+									value={form.trangThai}
+									onChange={(e) => setForm({ ...form, trangThai: e.target.value as any })}
+								>
+									<option value="dang-tien-hanh">Đang tiến hành</option>
+									<option value="hoan-thanh">Hoàn thành</option>
+									<option value="huy-bo">Hủy bỏ</option>
+								</select>
+							</div>
+						</div>
+						<div className="mt-3">
+							<label className="block text-xs font-medium text-slate-600 mb-1">Ghi chú</label>
+							<textarea
+								className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:ring-2 focus:ring-sky-200 outline-none transition"
+								rows={3}
+								value={form.ghiChu}
+								onChange={(e) => setForm({ ...form, ghiChu: e.target.value })}
+								placeholder="Ghi chú về phiếu kiểm kê..."
 							/>
 						</div>
-						<div>
-							<label className="block text-sm mb-1 text-gray-500">Ngày kiểm kê *</label>
-							<input
-								type="date"
-								className="w-full bg-[#fce7ec] border border-[#f9dfe3] rounded-xl px-3 py-2 focus:ring-2 focus:ring-[#d47b8a] outline-none transition"
-								value={form.ngayKiemKe}
-								onChange={(e) => setForm({ ...form, ngayKiemKe: e.target.value })}
-								required
-							/>
-						</div>
-						<div>
-							<label className="block text-sm mb-1 text-gray-500">Người kiểm kê *</label>
-							<input
-								className="w-full bg-[#fce7ec] border border-[#f9dfe3] rounded-xl px-3 py-2 focus:ring-2 focus:ring-[#d47b8a] outline-none transition"
-								value={form.nguoiKiemKe}
-								onChange={(e) => setForm({ ...form, nguoiKiemKe: e.target.value })}
-								required
-							/>
-						</div>
-						<div>
-							<label className="block text-sm mb-1 text-gray-500">Trạng thái</label>
-							<select
-								className="w-full bg-[#fce7ec] border border-[#f9dfe3] rounded-xl px-3 py-2 focus:ring-2 focus:ring-[#d47b8a] outline-none transition"
-								value={form.trangThai}
-								onChange={(e) => setForm({ ...form, trangThai: e.target.value as any })}
-							>
-								<option value="dang-tien-hanh">Đang tiến hành</option>
-								<option value="hoan-thanh">Hoàn thành</option>
-								<option value="huy-bo">Hủy bỏ</option>
-							</select>
-						</div>
-					</div>
-					<div>
-						<label className="block text-sm mb-1 text-gray-500">Ghi chú</label>
-						<textarea
-							className="w-full bg-[#fce7ec] border border-[#f9dfe3] rounded-xl px-3 py-2 focus:ring-2 focus:ring-[#d47b8a] outline-none transition"
-							rows={3}
-							value={form.ghiChu}
-							onChange={(e) => setForm({ ...form, ghiChu: e.target.value })}
-							placeholder="Ghi chú về phiếu kiểm kê..."
-						/>
 					</div>
 
 					{/* Chi tiết kiểm kê */}
-					<div className="border-t pt-4">
+					<div className="rounded-2xl border border-sky-100 bg-sky-50/60 p-4">
 						<div className="flex items-center justify-between mb-3">
-							<label className="block text-sm font-medium text-gray-700">Chi tiết kiểm kê *</label>
-							<Button variant="secondary" size="sm" onClick={addChiTiet}>
+							<div>
+								<p className="text-sm font-semibold text-slate-800 flex items-center gap-2">
+									<FileText className="w-4 h-4 text-sky-500" />
+									Chi tiết kiểm kê *
+								</p>
+								<p className="text-[11px] text-slate-500 mt-0.5">Chọn hàng hóa và nhập số lượng thực tế</p>
+							</div>
+							<Button variant="secondary" onClick={addChiTiet}>
 								<Plus className="w-3 h-3 mr-1" />
 								Thêm sản phẩm
 							</Button>
 						</div>
-						<div className="space-y-3 max-h-96 overflow-y-auto">
+						<div className="space-y-3 max-h-96 overflow-y-auto pr-1">
 							{chiTietKiemKe.map((ct, index) => (
-								<div key={index} className="border rounded-lg p-3 bg-gray-50">
-									<div className="grid grid-cols-2 gap-3 mb-2">
+								<div key={index} className="border border-sky-100 rounded-xl p-3 bg-white/80 shadow-sm">
+									<div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-2">
 										<div>
-											<label className="block text-xs mb-1 text-gray-500">Mã hàng hóa *</label>
+											<label className="block text-xs mb-1 text-slate-600">Mã hàng hóa *</label>
 											<select
-												className="w-full bg-white border border-gray-300 rounded-lg px-2 py-1 text-sm focus:ring-2 focus:ring-[#d47b8a] outline-none"
+												className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:ring-2 focus:ring-sky-200 focus:border-sky-500 outline-none"
 												value={ct.mahh}
 												onChange={(e) => updateChiTiet(index, 'mahh', e.target.value)}
 												required
@@ -449,47 +553,47 @@ export default function KiemKeKhoPage() {
 											</select>
 										</div>
 										<div>
-											<label className="block text-xs mb-1 text-gray-500">Tên hàng hóa</label>
+											<label className="block text-xs mb-1 text-slate-600">Tên hàng hóa</label>
 											<input
-												className="w-full bg-white border border-gray-300 rounded-lg px-2 py-1 text-sm"
+												className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-sm"
 												value={ct.tenhh}
 												readOnly
 											/>
 										</div>
 										<div>
-											<label className="block text-xs mb-1 text-gray-500">Số lượng sổ sách</label>
+											<label className="block text-xs mb-1 text-slate-600">Số lượng sổ sách</label>
 											<input
 												type="number"
-												className="w-full bg-white border border-gray-300 rounded-lg px-2 py-1 text-sm"
+												className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-sm"
 												value={ct.soLuongSach}
 												onChange={(e) => updateChiTiet(index, 'soLuongSach', parseInt(e.target.value) || 0)}
 											/>
 										</div>
 										<div>
-											<label className="block text-xs mb-1 text-gray-500">Số lượng thực tế *</label>
+											<label className="block text-xs mb-1 text-slate-600">Số lượng thực tế *</label>
 											<input
 												type="number"
-												className="w-full bg-white border border-gray-300 rounded-lg px-2 py-1 text-sm"
+												className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-sm"
 												value={ct.soLuongThucTe}
 												onChange={(e) => updateChiTiet(index, 'soLuongThucTe', parseInt(e.target.value) || 0)}
 												required
 											/>
 										</div>
 										<div>
-											<label className="block text-xs mb-1 text-gray-500">Chênh lệch</label>
+											<label className="block text-xs mb-1 text-slate-600">Chênh lệch</label>
 											<input
 												type="number"
-												className={`w-full bg-white border border-gray-300 rounded-lg px-2 py-1 text-sm font-medium ${
-													ct.chenhLech > 0 ? 'text-green-600' : ct.chenhLech < 0 ? 'text-red-600' : 'text-gray-600'
+												className={`w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-sm font-medium ${
+													ct.chenhLech > 0 ? 'text-emerald-600' : ct.chenhLech < 0 ? 'text-rose-600' : 'text-slate-600'
 												}`}
 												value={ct.chenhLech}
 												readOnly
 											/>
 										</div>
 										<div>
-											<label className="block text-xs mb-1 text-gray-500">Lý do</label>
+											<label className="block text-xs mb-1 text-slate-600">Lý do</label>
 											<input
-												className="w-full bg-white border border-gray-300 rounded-lg px-2 py-1 text-sm"
+												className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-sm"
 												value={ct.lyDo || ''}
 												onChange={(e) => updateChiTiet(index, 'lyDo', e.target.value)}
 												placeholder="Lý do chênh lệch..."
@@ -499,24 +603,26 @@ export default function KiemKeKhoPage() {
 									<button
 										type="button"
 										onClick={() => removeChiTiet(index)}
-										className="mt-2 text-xs text-red-600 hover:text-red-700"
+										className="mt-2 text-xs text-rose-600 hover:text-rose-700 flex items-center gap-1"
 									>
-										<Trash2 className="w-3 h-3 inline mr-1" />
-										Xóa
+										<Trash2 className="w-3 h-3" />
+										<span>Xóa dòng này</span>
 									</button>
 								</div>
 							))}
 							{chiTietKiemKe.length === 0 && (
-								<div className="text-center py-4 text-gray-400 text-sm">Chưa có chi tiết kiểm kê</div>
+								<div className="text-center py-4 text-slate-400 text-sm">Chưa có chi tiết kiểm kê</div>
 							)}
 						</div>
 					</div>
 
-					<div className="flex justify-end gap-2 pt-2">
+					<div className="flex justify-end gap-3 pt-3">
 						<Button variant="secondary" onClick={() => setOpenModal(false)}>
 							Hủy
 						</Button>
-						<Button onClick={handleSave}>{editing ? '💾 Lưu' : '➕ Tạo'}</Button>
+						<Button onClick={handleSave}>
+							{editing ? '💾 Lưu' : '➕ Tạo'}
+						</Button>
 					</div>
 				</div>
 			</Modal>

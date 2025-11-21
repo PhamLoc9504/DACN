@@ -361,9 +361,12 @@ export default function HoaDonPage() {
         if (voucherType === 'PN') payload.SoPX = null;
         if (voucherType === 'PX') payload.SoPN = null;
         if (voucherType === 'PN') {
-            payload.MaKH = null as any;
-			delete payload.MaNCC;
-        }
+			// Hóa đơn cho phiếu nhập: không có khách hàng, nhưng phải giữ lại MaNCC
+			payload.MaKH = null as any;
+		} else if (voucherType === 'PX') {
+			// Hóa đơn cho phiếu xuất: không dùng MaNCC
+			payload.MaNCC = null as any;
+		}
         const method = editing.MaHD ? 'PUT' : 'POST';
 		const res = await fetch('/api/hoa-don', {
 			method,
@@ -1315,10 +1318,18 @@ export default function HoaDonPage() {
 										<span className="text-gray-600">Ngày lập:</span>
 										<span className="font-medium text-gray-900">{selectedHD.NgayLap ? formatVietnamDate(selectedHD.NgayLap) : '-'}</span>
 									</div>
-									<div className="flex justify-between">
-										<span className="text-gray-600">Mã KH:</span>
-										<span className="font-medium text-gray-900">{selectedHD.MaKH || '-'}</span>
-									</div>
+									{/* Nếu là phiếu nhập (có SoPN) thì hiển thị Mã NCC, ngược lại hiển thị Mã KH */}
+									{selectedHD.SoPN ? (
+										<div className="flex justify-between">
+											<span className="text-gray-600">Mã NCC:</span>
+											<span className="font-medium text-gray-900">{(selectedHD as any).MaNCC || '-'}</span>
+										</div>
+									) : (
+										<div className="flex justify-between">
+											<span className="text-gray-600">Mã KH:</span>
+											<span className="font-medium text-gray-900">{selectedHD.MaKH || '-'}</span>
+										</div>
+									)}
 									<div className="flex justify-between">
 										<span className="text-gray-600">Mã NV:</span>
 										<span className="font-medium text-gray-900">{selectedHD.MaNV || '-'}</span>
@@ -1332,14 +1343,19 @@ export default function HoaDonPage() {
 									<h3 className="font-semibold text-gray-800">Thông tin phiếu</h3>
 								</div>
 								<div className="space-y-2 text-sm">
-									<div className="flex justify-between">
-										<span className="text-gray-600">Số PX:</span>
-										<span className="font-medium text-gray-900">{selectedHD.SoPX || '-'}</span>
-									</div>
-									<div className="flex justify-between">
-										<span className="text-gray-600">Số PN:</span>
-										<span className="font-medium text-gray-900">{selectedHD.SoPN || '-'}</span>
-									</div>
+									{/* Nếu là phiếu nhập (có SoPN) thì ẩn Số PX; nếu là phiếu xuất (có SoPX) thì ẩn Số PN */}
+									{!selectedHD.SoPN && (
+										<div className="flex justify-between">
+											<span className="text-gray-600">Số PX:</span>
+											<span className="font-medium text-gray-900">{selectedHD.SoPX || '-'}</span>
+										</div>
+									)}
+									{!selectedHD.SoPX && (
+										<div className="flex justify-between">
+											<span className="text-gray-600">Số PN:</span>
+											<span className="font-medium text-gray-900">{selectedHD.SoPN || '-'}</span>
+										</div>
+									)}
 									<div className="flex justify-between items-center pt-2 border-t border-pink-200">
 										<span className="text-gray-600 font-medium">Trạng thái:</span>
 										<span className={`px-3 py-1 rounded-full text-xs font-semibold ${

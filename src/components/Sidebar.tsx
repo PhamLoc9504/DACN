@@ -2,6 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
+import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import type { AppSession } from '@/lib/session';
 import { canAccessFeature, FeatureKey, getRoleDisplayName, PermissionLevel } from '@/lib/roles';
@@ -13,12 +14,16 @@ type SidebarItem = {
 	required?: PermissionLevel;
 };
 
+const dashboardItems: SidebarItem[] = [
+	{ href: '/', label: 'Dashboard doanh thu', feature: 'dashboard' },
+];
+
 const items: SidebarItem[] = [
-	{ href: '/', label: '📊 Dashboard', feature: 'dashboard' },
 	{ href: '/hang-hoa', label: '📦 Hàng hóa', feature: 'inventory' },
 	{ href: '/nhap-hang', label: '📥 Nhập hàng', feature: 'import', required: 'edit' },
 	{ href: '/xuat-hang', label: '📤 Xuất hàng', feature: 'export', required: 'edit' },
 	{ href: '/hoa-don', label: '🧾 Hóa đơn', feature: 'invoice', required: 'view' },
+	{ href: '/kenh-chat', label: '💬 Kênh chat (nhân viên)', feature: 'dashboard', required: 'none' },
 	{ href: '/cham-soc-khach-hang', label: '💎 Chăm sóc khách hàng', feature: 'customer-management' },
 	{ href: '/kiem-ke-kho', label: '📋 Kiểm kê kho', feature: 'inventory' },
 	{ href: '/nha-cung-cap', label: '🏭 Nhà cung cấp', feature: 'supplier-management', required: 'view' },
@@ -38,6 +43,9 @@ const systemItems: SidebarItem[] = [
 export default function Sidebar({ session }: { session?: AppSession | null }) {
 	const pathname = usePathname();
 	const role = session?.vaiTro;
+	const visibleDashboard = session
+		? dashboardItems.filter((item) => canAccessFeature(role, item.feature, item.required ?? 'view'))
+		: dashboardItems;
 	const visiblePrimary = session
 		? items.filter((item) => canAccessFeature(role, item.feature, item.required ?? 'view'))
 		: items;
@@ -45,9 +53,11 @@ export default function Sidebar({ session }: { session?: AppSession | null }) {
 		? systemItems.filter((item) => canAccessFeature(role, item.feature, item.required ?? 'view'))
 		: [];
 	const showSystem = visibleSystem.length > 0;
+	const isDashboardRoute = visibleDashboard.some((i) => pathname === i.href);
+	const [openDashboard, setOpenDashboard] = useState(isDashboardRoute);
 
 	return (
-		<aside className="hidden md:flex md:w-72 lg:w-72 xl:w-80 shrink-0 flex-col bg-gradient-to-b from-[#fffaf6] to-[#fff2ee] border-r border-[#e7d8c8] shadow-[10px_0_24px_-12px_rgba(0,0,0,0.15)] ring-1 ring-[#f1e6d9]">
+		<aside className="hidden md:flex md:w-64 lg:w-64 xl:w-72 shrink-0 flex-col bg-white border-r border-slate-200 shadow-sm">
 			{/* Header */}
 			<div className="px-6 py-5 border-b border-[#eadbcb] bg-[#fff7f2]/70 backdrop-blur-sm">
 				<div className="font-semibold text-xl tracking-tight text-[#e28c8c]">
@@ -58,6 +68,54 @@ export default function Sidebar({ session }: { session?: AppSession | null }) {
 
 			{/* Nav Items */}
 			<nav className="p-4 space-y-1.5 flex-1 overflow-y-auto">
+				{/* Dashboard group */}
+				{visibleDashboard.length > 0 && (
+					<div className="space-y-1 mb-2">
+						<button
+							type="button"
+							onClick={() => setOpenDashboard((v) => !v)}
+							className={cn(
+								'group flex w-full items-center gap-2 rounded-xl px-3.5 py-2.5 text-sm font-semibold border transition-all duration-200',
+								isDashboardRoute || openDashboard
+									? 'bg-[#fde7e2] text-[#d46b6b] border-[#efc9c2] shadow-sm'
+									: 'text-[#7b6a60] hover:text-[#d46b6b] hover:bg-[#fff0ee] border-transparent hover:border-[#f3ddd6] hover:shadow-sm'
+							)}
+						>
+							<span>📊 Dashboard</span>
+							<span
+								className={cn(
+									'ml-auto text-xs transition-transform',
+									openDashboard ? 'rotate-180' : 'rotate-0'
+								)}
+							>
+								▾
+							</span>
+						</button>
+						{openDashboard && (
+							<div className="mt-1 space-y-1 pl-4">
+								{visibleDashboard.map((i) => {
+									const active = pathname === i.href;
+									return (
+										<Link
+											key={i.href}
+											href={i.href}
+											className={cn(
+												'group relative flex items-center gap-2 rounded-lg px-3 py-2 text-[13px] font-medium border transition-all duration-200',
+												active
+													? 'bg-[#fff7f2] text-[#d46b6b] border-[#f3ddd6] shadow-sm'
+													: 'text-[#7b6a60] hover:text-[#d46b6b] hover:bg-[#fff0ee] border-transparent hover:border-[#f3ddd6]'
+											)}
+										>
+											<span className={cn('h-2 w-2 rounded-full border mr-1', active ? 'bg-[#e28c8c] border-[#e28c8c]' : 'border-[#c9a69d]')} />
+											<span>{i.label}</span>
+										</Link>
+									);
+								})}
+							</div>
+						)}
+					</div>
+				)}
+
 				{visiblePrimary.map((i) => {
 					const active = pathname === i.href;
 					return (

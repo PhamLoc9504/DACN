@@ -36,7 +36,20 @@ export async function GET(req: Request) {
 			const { data, error } = await supabase.from('hoadon').select('*').eq('mahd', id).limit(1).maybeSingle();
 			if (error) throw error;
 			if (!data) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-			return NextResponse.json({ data: toCamel(data) });
+			const camel: any = toCamel(data);
+			// Nếu là hóa đơn của phiếu nhập, lấy thêm Mã NCC từ bảng phieunhap
+			if (data.sopn) {
+				const { data: pn } = await supabase
+					.from('phieunhap')
+					.select('mancc')
+					.eq('sopn', data.sopn)
+					.limit(1)
+					.maybeSingle();
+				if (pn?.mancc) {
+					camel.MaNCC = pn.mancc;
+				}
+			}
+			return NextResponse.json({ data: camel });
 		}
 
 		const from = (page - 1) * limit;

@@ -25,7 +25,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const session = await getSessionFromCookies();
   return (
     <html lang="vi" suppressHydrationWarning>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen text-[#4a372e]`}>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-[#f8f9fe] text-[#111827]`}>
         <AppShell session={session}>{children}</AppShell>
       </body>
     </html>

@@ -61,8 +61,15 @@ export default function LoginPage() {
 
 				<form onSubmit={handleLogin} className="space-y-5">
 					<div>
-						<label className="block text-sm mb-1 text-gray-500">Tên đăng nhập</label>
-						<input type="text" className="w-full bg-[#fce7ec] border border-[#f9dfe3] rounded-xl px-3 py-2 text-gray-800 focus:ring-2 focus:ring-[#d47b8a] outline-none transition" value={username} onChange={(e) => setUsername(e.target.value)} required placeholder="Nhập tên đăng nhập..." />
+						<label className="block text-sm mb-1 text-gray-500">Email</label>
+						<input
+							type="email"
+							className="w-full bg-[#fce7ec] border border-[#f9dfe3] rounded-xl px-3 py-2 text-gray-800 focus:ring-2 focus:ring-[#d47b8a] outline-none transition"
+							value={username}
+							onChange={(e) => setUsername(e.target.value)}
+							required
+							placeholder="Nhập email..."
+						/>
 					</div>
 					<div>
 						<label className="block text-sm mb-1 text-gray-500">Mật khẩu</label>
