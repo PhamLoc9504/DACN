@@ -316,6 +316,19 @@ export default function XuatHangPage() {
 					<h1 className="text-2xl font-semibold text-[#d47b8a]">📤 Quản lý phiếu xuất hàng</h1>
 					<Button onClick={openCreateModal}>➕ Tạo phiếu xuất</Button>
 				</div>
+				<div className="mb-4 rounded-xl border border-[#fcd5ce] bg-[#fff5f2] px-4 py-3 text-xs text-[#7b4b3f] flex gap-2">
+					<span className="mt-0.5">
+						<AlertTriangle className="w-4 h-4 text-[#e07a5f]" />
+					</span>
+					<div>
+						<p className="font-semibold">Lưu ý pháp lý khi lập phiếu xuất và hóa đơn</p>
+						<p className="mt-1">
+							Phiếu xuất và các chứng từ bán hàng được hệ thống lưu trữ, khóa/xóa mềm để phục vụ nghĩa vụ kế toán – thuế của
+							doanh nghiệp theo Luật Kế toán 2015 (LU04), Luật Thuế GTGT (LU05) và Luật Thương mại 2005 (LU03). Việc cố ý
+							sửa hoặc xóa chứng từ nhằm gian lận có thể vi phạm quy định pháp luật hiện hành.
+						</p>
+					</div>
+				</div>
 				<div className="grid md:grid-cols-5 gap-4">
 					<div className="md:col-span-2">
 						<label className="block text-sm mb-1 text-gray-500">Tìm kiếm</label>
@@ -382,7 +395,7 @@ export default function XuatHangPage() {
 							<th className="py-3 px-4 font-medium">Số PX</th>
 							<th className="py-3 px-4 font-medium">Ngày xuất</th>
 							<th className="py-3 px-4 font-medium">Mã NV</th>
-							<th className="py-3 px-4 font-medium">Thao tác</th>
+							<th className="py-3 px-4 font-medium">Hành động</th>
 						</tr>
 					</thead>
 					<tbody>

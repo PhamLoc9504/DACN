@@ -94,6 +94,70 @@ export async function POST(req: Request) {
 		// Ghi log CRUD
 		await logCRUD('SUA', 'hoadon', MaHD, hoaDon, updatedHD);
 
+		// Tự động tạo đơn vận chuyển nếu cần (đề phòng trigger trong DB chưa hoạt động)
+		try {
+			// Chỉ tạo vận chuyển nếu hóa đơn giao hàng
+			if ((updatedHD as any).hinhthucgiao === 'Giao hàng') {
+				// Kiểm tra đã có đơn vận chuyển cho hóa đơn này chưa
+				const { data: existingVc, error: checkErr } = await supabase
+					.from('dovi_vanchuyen')
+					.select('mavc')
+					.eq('mahd', MaHD)
+					.limit(1);
+
+				if (checkErr) {
+					console.error('Lỗi khi kiểm tra vận chuyển:', checkErr);
+				} else if (!existingVc || existingVc.length === 0) {
+					// Lấy địa chỉ khách hàng
+					let diaChiNhan = 'Chưa có địa chỉ';
+					if ((updatedHD as any).makh) {
+						const { data: kh, error: khErr } = await supabase
+							.from('khachhang')
+							.select('diachi')
+							.eq('makh', (updatedHD as any).makh)
+							.single();
+
+						if (!khErr && kh?.diachi) {
+							diaChiNhan = kh.diachi as string;
+						}
+					}
+
+					// Sinh mã vận chuyển tiếp theo dạng VC01, VC02...
+					let newMaVC = 'VC01';
+					const { data: maxRows, error: maxErr } = await supabase
+						.from('dovi_vanchuyen')
+						.select('mavc')
+						.ilike('mavc', 'VC%')
+						.order('mavc', { ascending: false })
+						.limit(1);
+
+					if (!maxErr && maxRows && maxRows.length > 0 && maxRows[0].mavc) {
+						const current = String(maxRows[0].mavc);
+						const num = parseInt(current.slice(2), 10);
+						const next = Number.isNaN(num) ? 1 : num + 1;
+						newMaVC = 'VC' + String(next).padStart(2, '0');
+					}
+
+					const ngayGiao = new Date();
+					ngayGiao.setDate(ngayGiao.getDate() + 1); // giao sau 1 ngày
+
+					const { error: insertErr } = await supabase.from('dovi_vanchuyen').insert({
+						mavc: newMaVC,
+						mahd: MaHD,
+						ngaygiao: ngayGiao.toISOString().slice(0, 10),
+						diachinhan: diaChiNhan,
+						trangthai: 'Chờ lấy hàng',
+					});
+
+					if (insertErr) {
+						console.error('Lỗi khi tạo vận chuyển tự động:', insertErr);
+					}
+				}
+			}
+		} catch (autoShipErr) {
+			console.error('Lỗi auto shipping khi thanh toán hóa đơn:', autoShipErr);
+		}
+
 		return NextResponse.json({
 			ok: true,
 			data: {

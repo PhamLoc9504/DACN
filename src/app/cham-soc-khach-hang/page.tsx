@@ -447,7 +447,7 @@ export default function ChamSocKhachHangPage() {
 												<th className="py-3 px-4 font-medium">Tên KH</th>
 												<th className="py-3 px-4 font-medium">Số điện thoại</th>
 												<th className="py-3 px-4 font-medium">Địa chỉ</th>
-												<th className="py-3 px-4 font-medium text-center">Thao tác</th>
+												<th className="py-3 px-4 font-medium text-center">Hành động</th>
 											</tr>
 										</thead>
 										<tbody>

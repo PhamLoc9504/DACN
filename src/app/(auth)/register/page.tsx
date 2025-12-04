@@ -73,8 +73,26 @@ export default function RegisterPage() {
 						<input type="password" className="w-full bg-[#fce7ec] border border-[#f9dfe3] rounded-xl px-3 py-2" value={confirm} onChange={(e) => setConfirm(e.target.value)} required />
 					</div>
 					<div className="flex items-start gap-2">
-						<input type="checkbox" id="agree-terms" checked={agreedToTerms} onChange={(e) => setAgreedToTerms(e.target.checked)} className="mt-1" />
-						<label htmlFor="agree-terms" className="text-sm text-gray-600">Tôi đồng ý với các điều khoản sử dụng</label>
+						<input
+							type="checkbox"
+							id="agree-terms"
+							checked={agreedToTerms}
+							onChange={(e) => setAgreedToTerms(e.target.checked)}
+							className="mt-1"
+						/>
+						<div className="text-sm text-gray-600">
+							<label htmlFor="agree-terms" className="cursor-pointer">
+								Tôi đồng ý với các điều khoản sử dụng
+							</label>
+							{' '}
+							<button
+								type="button"
+								onClick={() => router.push('/register/terms')}
+								className="text-[#d47b8a] underline underline-offset-2 hover:text-[#c06273] font-medium"
+							>
+								Xem chi tiết
+							</button>
+						</div>
 					</div>
 					{error && <p className="text-sm text-red-600 text-center">{error}</p>}
 					{okMsg && <p className="text-sm text-green-600 text-center">{okMsg}</p>}

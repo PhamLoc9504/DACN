@@ -3,7 +3,7 @@ import { getServerSupabase } from '@/lib/supabaseClient';
 import { getSessionFromCookies } from '@/lib/session';
 import { logCRUD, logActivity } from '@/lib/auditLog';
 
-// Body: { phieu: { SoPN, NgayNhap, MaNV, MaNCC }, chitiet: [{ MaHH, SLNhap, DGNhap }] }
+// Body: { phieu: { SoPN, NgayNhap, MaNCC }, chitiet: [{ MaHH, SLNhap, DGNhap }] }
 export async function POST(req: Request) {
 	try {
 		const session = await getSessionFromCookies();
@@ -12,6 +12,23 @@ export async function POST(req: Request) {
 		const { phieu, chitiet } = await req.json();
 
 		const supabase = getServerSupabase();
+
+		// Tự động lấy MaNV từ tài khoản đăng nhập hiện tại
+		const { data: taiKhoan, error: tkError } = await supabase
+			.from('taikhoan')
+			.select('manv')
+			.eq('matk', session.maTk)
+			.maybeSingle();
+
+		if (tkError) {
+			throw tkError;
+		}
+
+		if (!taiKhoan?.manv) {
+			return NextResponse.json({ error: 'Tài khoản hiện tại chưa được gán cho nhân viên (MaNV)' }, { status: 400 });
+		}
+
+		const maNV = taiKhoan.manv as string;
 
 		// Tự động tạo mã SoPN nếu không có (format: PN01, PN02, ...)
 		let soPN = phieu?.SoPN;
@@ -75,7 +92,7 @@ export async function POST(req: Request) {
 				{
 					sopn: soPN,
 					ngaynhap: phieu.NgayNhap ?? null,
-					manv: phieu.MaNV ?? null,
+					manv: maNV,
 					mancc: phieu.MaNCC ?? null,
 				},
 			])
@@ -146,7 +163,7 @@ export async function POST(req: Request) {
 			data: {
 				SoPN: soPN,
 				NgayNhap: phieu.NgayNhap,
-				MaNV: phieu.MaNV,
+				MaNV: newPhieu?.manv ?? maNV,
 				MaNCC: phieu.MaNCC,
 			},
 		});

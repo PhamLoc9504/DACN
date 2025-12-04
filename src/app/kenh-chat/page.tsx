@@ -23,8 +23,65 @@ export default function StaffChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const activeStaff = staffs.find((s) => s.id === activeStaffId) || staffs[0];
+
+  async function handleDeleteConversation() {
+    if (!activeStaff) return;
+    if (!confirm(`Xóa toàn bộ hội thoại với ${activeStaff.name}?`)) return;
+    try {
+      const res = await fetch(`/api/chat/messages?staffId=${encodeURIComponent(activeStaff.id)}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Xóa hội thoại thất bại');
+      setMessages([]);
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  async function handleRecallMessage(id: string | number) {
+    try {
+      const res = await fetch(`/api/chat/messages?messageId=${encodeURIComponent(String(id))}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Thu hồi tin nhắn thất bại');
+      setMessages((prev) => prev.filter((m) => m.id !== id));
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  async function handleUploadFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !activeStaff) return;
+    try {
+      setUploading(true);
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch('/api/chat/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Upload file thất bại');
+
+      const text = `Tệp: ${data.name}\n${data.url}`;
+      // gửi như một tin nhắn mới
+      const prev = input;
+      setInput(text);
+      await handleSend();
+      setInput(prev);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setUploading(false);
+      e.target.value = '';
+    }
+  }
 
   useEffect(() => {
     (async () => {
@@ -259,9 +316,9 @@ export default function StaffChatPage() {
             </div>
           </div>
 
-          <div className="flex-1 bg-white rounded-2xl shadow-xl border border-gray-200 flex flex-col overflow-hidden">
-            <div className="px-6 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white flex items-center justify-between">
-              <div className="flex items-center gap-4">
+          <div className="flex-1 bg-white rounded-lg shadow-md border border-gray-200 flex flex-col overflow-hidden">
+            <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+              <div className="flex items-center gap-3">
                 <div className="relative">
                   <div className="h-12 w-12 rounded-full bg-white/20 backdrop-blur flex items-center justify-center text-white font-semibold text-lg shadow-lg">
                     {activeStaff?.name?.split(' ').pop()?.charAt(0).toUpperCase()}
@@ -278,7 +335,14 @@ export default function StaffChatPage() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <button className="p-2 hover:bg-white/20 rounded-lg transition">
+                <button
+                  type="button"
+                  onClick={handleDeleteConversation}
+                  className="px-3 py-1.5 text-xs rounded-md border border-gray-300 text-gray-600 hover:bg-gray-100"
+                >
+                  Xóa hội thoại
+                </button>
+                <label className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition cursor-pointer">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path
                       strokeLinecap="round"
@@ -287,17 +351,8 @@ export default function StaffChatPage() {
                       d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
                     />
                   </svg>
-                </button>
-                <button className="p-2 hover:bg-white/20 rounded-lg transition">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"
-                    />
-                  </svg>
-                </button>
+                  <input type="file" className="hidden" onChange={handleUploadFile} disabled={uploading} />
+                </label>
               </div>
             </div>
 
@@ -321,30 +376,29 @@ export default function StaffChatPage() {
                     key={m.id}
                     className={`flex ${m.author === 'me' ? 'justify-end' : 'justify-start'}`}
                   >
-                    <div
-                      className={`max-w-[70%] rounded-2xl px-4 py-3 shadow-md ${
-                        m.author === 'me'
-                          ? 'bg-gradient-to-br from-blue-600 to-indigo-600 text-white rounded-br-md'
-                          : 'bg-white text-gray-800 border border-gray-200 rounded-bl-md'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 mb-1">
-                        <span
-                          className={`text-xs font-semibold ${
-                            m.author === 'me' ? 'text-blue-100' : 'text-gray-500'
-                          }`}
-                        >
-                          {m.author === 'me' ? 'Bạn' : activeStaff?.name}
-                        </span>
-                        <span
-                          className={`text-[10px] ${
-                            m.author === 'me' ? 'text-blue-200' : 'text-gray-400'
-                          }`}
-                        >
-                          {m.time}
-                        </span>
+                    <div className="group max-w-[80%] flex flex-col items-end">
+                      <div
+                        className={`w-full rounded-lg px-4 py-2 shadow ${
+                          m.author === 'me'
+                            ? 'bg-blue-500 text-white'
+                            : 'bg-white text-gray-800 border border-gray-200'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1 text-xs opacity-80">
+                          <span>{m.author === 'me' ? 'Bạn' : activeStaff?.name}</span>
+                          <span>{m.time}</span>
+                        </div>
+                        <p className="text-sm whitespace-pre-wrap break-words">{m.text}</p>
                       </div>
-                      <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{m.text}</p>
+                      {m.author === 'me' && (
+                        <button
+                          type="button"
+                          onClick={() => handleRecallMessage(m.id)}
+                          className="mt-1 text-[11px] text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition"
+                        >
+                          Thu hồi
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))

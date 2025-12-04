@@ -149,7 +149,7 @@ export default function NhaCungCapPage() {
 							<th className="py-3 px-4 font-medium">Tên nhà cung cấp</th>
 							<th className="py-3 px-4 font-medium">SĐT</th>
 							<th className="py-3 px-4 font-medium">Địa chỉ</th>
-							<th className="py-3 px-4 font-medium">Thao tác</th>
+							<th className="py-3 px-4 font-medium">Hành động</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -166,7 +166,11 @@ export default function NhaCungCapPage() {
 
 						{!loading &&
 							rows.map((r) => (
-								<tr key={r.MaNCC} className="border-b border-[#f5ebe0] hover:bg-[#fce7ec]/40 transition">
+								<tr
+									key={r.MaNCC}
+									className="border-b border-[#f5ebe0] hover:bg-[#fce7ec]/40 transition cursor-pointer"
+									onClick={() => openEditModal(r)}
+								>
 									<td className="py-3 px-4 font-medium">{r.MaNCC}</td>
 									<td className="py-3 px-4">{r.TenNCC}</td>
 									<td className="py-3 px-4 text-gray-700">{r.SDT || '-'}</td>

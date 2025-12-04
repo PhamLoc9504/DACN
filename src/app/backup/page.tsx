@@ -279,7 +279,7 @@ export default function BackupPage() {
 								<th className="py-3 px-4 font-medium">Số bảng</th>
 								<th className="py-3 px-4 font-medium">Trạng thái</th>
 								<th className="py-3 px-4 font-medium">Mô tả</th>
-								<th className="py-3 px-4 text-center font-medium">Thao tác</th>
+								<th className="py-3 px-4 text-center font-medium">Hành động</th>
 							</tr>
 						</thead>
 						<tbody>

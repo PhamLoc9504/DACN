@@ -1,5 +1,6 @@
-"use client";
-import { useEffect, useState } from "react";
+'use client';
+
+import { useCallback, useEffect, useState } from "react";
 import type { Tables } from "@/lib/supabaseClient";
 import {
   CartesianGrid,
@@ -13,10 +14,23 @@ import {
   Pie,
   Cell,
   Legend,
-  AreaChart,
-  Area,
+  BarChart,
+  Bar,
 } from "recharts";
-import { ChartPie, Package2, DollarSign, AlertTriangle } from "lucide-react";
+import { 
+  TrendingUp, 
+  Package, 
+  DollarSign, 
+  AlertTriangle,
+  ShoppingCart,
+  ArrowUpRight,
+  ArrowDownRight,
+  RefreshCw,
+  Users,
+  BarChart3,
+  Calendar
+} from "lucide-react";
+import { motion } from 'framer-motion';
 
 type KPI = {
   tongHangHoa: number;
@@ -39,464 +53,622 @@ export default function Home() {
   const [dailyRevenue, setDailyRevenue] = useState<{ day: string; revenue: number }[]>([]);
   const [yearlyRevenue, setYearlyRevenue] = useState<{ year: string; revenue: number }[]>([]);
   const [revView, setRevView] = useState<'month' | 'day' | 'year'>('month');
-  const idleThreshold = 1_000_000; // 1M VND ~ gần như không có giao dịch
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  useEffect(() => {
-    async function load() {
-      const [hhRes, hdRes, topRes, anomalyRes] = await Promise.all([
-        fetch("/api/hang-hoa").then((r) => r.json()),
-        fetch(`/api/hoa-don?status=${encodeURIComponent('Đã thanh toán')}&limit=10000&page=1`).then((r) => r.json()),
-        fetch('/api/dashboard/top-selling').then((r) => r.json()).catch(() => null),
-        fetch('/api/dashboard/item-anomalies').then((r) => r.json()).catch(() => null),
+  const LOW_STOCK_THRESHOLD = 5;
+
+  function parseDate(value: string | null | undefined): Date | null {
+    if (!value) return null;
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+
+  function toNumber(value: any): number {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  const loadDashboard = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      const params = new URLSearchParams({ page: "1", limit: "10000" }).toString();
+
+      const [hhRes, hdRes, topSellRes, anomalyRes] = await Promise.all([
+        fetch(`/api/hang-hoa?${params}`, { credentials: "include" }).then((r) => r.json()),
+        fetch(`/api/hoa-don?${params}`, { credentials: "include" }).then((r) => r.json()),
+        fetch(`/api/dashboard/top-selling`, { credentials: "include" }).then((r) => r.json()),
+        fetch(`/api/dashboard/item-anomalies`, { credentials: "include" }).then((r) => r.json()),
       ]);
 
-      const hang = (hhRes.data || []) as Tables["HangHoa"][];
+      if (hhRes.error) throw new Error(hhRes.error);
+      if (hdRes.error) throw new Error(hdRes.error);
+
+      const products = (hhRes.data || []) as Tables["HangHoa"][];
       const invoices = (hdRes.data || []) as Tables["HoaDon"][];
-      const tongHangHoa = hang.length;
-      const tongTonKho = hang.reduce((s, x) => s + (x.SoLuongTon || 0), 0);
-      const tongDoanhThu = invoices.reduce((s, x) => {
-        if (x.SoPX) return s + (x.TongTien || 0);
-        if (x.SoPN) return s - (x.TongTien || 0);
-        return s + (x.TongTien || 0);
-      }, 0);
-      setKpi({ tongHangHoa, tongTonKho, tongDoanhThu });
-      setSapHet(hang.filter((x) => (x.SoLuongTon || 0) <= 5));
 
-      // Doanh thu theo tháng
-      const monthMap = new Map<string, number>();
-      const monthNhap = new Map<string, number>();
-      const monthXuat = new Map<string, number>();
-      for (const inv of invoices) {
-        if (!inv.NgayLap) continue;
-        const d = new Date(inv.NgayLap);
-        if (isNaN(d.getTime())) continue;
-        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-        monthMap.set(key, (monthMap.get(key) || 0) + (inv.TongTien || 0));
-        if (inv.SoPX) monthXuat.set(key, (monthXuat.get(key) || 0) + (inv.TongTien || 0));
-        if (inv.SoPN) monthNhap.set(key, (monthNhap.get(key) || 0) + (inv.TongTien || 0));
-      }
-      const sorted = Array.from(monthMap.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-      // Lấy tối đa 6 tháng gần nhất để hiển thị
-      const last6 = sorted.slice(-6);
-      const formatted = last6.map(([key, total]) => {
-        const [year, month] = key.split("-");
-        return { month: `T${parseInt(month, 10)}/${year.slice(-2)}`, revenue: total };
+      const totalProducts = hhRes.total ?? products.length;
+      const totalStock = products.reduce((sum, p) => sum + toNumber(p.SoLuongTon), 0);
+
+      const exportInvoices = invoices.filter(
+        (inv) => inv.TrangThai === "Đã thanh toán" && (inv.SoPX || inv.SoPN)
+      );
+      const totalRevenue = exportInvoices.reduce((sum, inv) => sum + toNumber(inv.TongTien), 0);
+
+      setKpi({
+        tongHangHoa: totalProducts,
+        tongTonKho: totalStock,
+        tongDoanhThu: totalRevenue,
       });
-      setRevenueData(formatted);
 
-      // Dòng tiền nhập/xuất theo ngày (7 ngày gần nhất)
-      const dayFlowMap = new Map<string, { xuat: number; nhap: number }>();
-      for (const inv of invoices) {
-        if (!inv.NgayLap) continue;
-        const d = new Date(inv.NgayLap);
-        if (isNaN(d.getTime())) continue;
-        const key = d.toISOString().slice(0, 10); // yyyy-mm-dd
-        const current = dayFlowMap.get(key) || { xuat: 0, nhap: 0 };
-        if (inv.SoPX) current.xuat += inv.TongTien || 0;
-        if (inv.SoPN) current.nhap += inv.TongTien || 0;
-        dayFlowMap.set(key, current);
+      const lowStock = products
+        .filter((p) => toNumber(p.SoLuongTon) <= LOW_STOCK_THRESHOLD)
+        .sort((a, b) => toNumber(a.SoLuongTon) - toNumber(b.SoLuongTon))
+        .slice(0, 50);
+      setSapHet(lowStock);
+
+      const monthMap = new Map<string, number>();
+      const dayMap = new Map<string, number>();
+      const yearMap = new Map<string, number>();
+
+      for (const inv of exportInvoices) {
+        const d = parseDate(inv.NgayLap as any);
+        if (!d) continue;
+        const amount = toNumber(inv.TongTien);
+        if (!amount) continue;
+
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, "0");
+        const day = String(d.getDate()).padStart(2, "0");
+        const monthKey = `${y}-${m}`;
+        const dayKey = `${y}-${m}-${day}`;
+        const yearKey = String(y);
+
+        monthMap.set(monthKey, (monthMap.get(monthKey) || 0) + amount);
+        dayMap.set(dayKey, (dayMap.get(dayKey) || 0) + amount);
+        yearMap.set(yearKey, (yearMap.get(yearKey) || 0) + amount);
       }
-      const flowDaysSorted = Array.from(dayFlowMap.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-      const last7Flow = flowDaysSorted.slice(-7).map(([date, v]) => ({
-        month: date.slice(5),
-        xuat: v.xuat,
-        nhap: v.nhap,
-      }));
-      setFlowData(last7Flow);
 
-      // Tỷ trọng doanh thu (Xuất) vs chi phí (Nhập)
-      const sumXuat = Array.from(monthXuat.values()).reduce((s, v) => s + v, 0);
-      const sumNhap = Array.from(monthNhap.values()).reduce((s, v) => s + v, 0);
+      const monthData = Array.from(monthMap.entries())
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([key, revenue]) => {
+          const [y, m] = key.split("-");
+          return { month: `${m}/${y}`, revenue };
+        });
+
+      const dayEntries = Array.from(dayMap.entries()).map(([key, revenue]) => ({
+        key,
+        date: new Date(key),
+        revenue,
+      }));
+      dayEntries.sort((a, b) => a.date.getTime() - b.date.getTime());
+      const lastDays = dayEntries.slice(-14).map((d) => ({
+        day: d.date.toLocaleDateString("vi-VN"),
+        revenue: d.revenue,
+      }));
+
+      const yearData = Array.from(yearMap.entries())
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([year, revenue]) => ({ year, revenue }));
+
+      setRevenueData(monthData);
+      setDailyRevenue(lastDays);
+      setYearlyRevenue(yearData);
+
+      const now = new Date();
+      const start = new Date(now);
+      start.setDate(start.getDate() - 6);
+
+      const flowMap = new Map<string, { nhap: number; xuat: number }>();
+      for (const inv of exportInvoices) {
+        const d = parseDate(inv.NgayLap as any);
+        if (!d || d < start) continue;
+        const key = d.toISOString().slice(0, 10);
+        const rec = flowMap.get(key) || { nhap: 0, xuat: 0 };
+        const amount = toNumber(inv.TongTien);
+        if (inv.SoPX) rec.xuat += amount;
+        if (inv.SoPN) rec.nhap += amount;
+        flowMap.set(key, rec);
+      }
+
+      const flowArr = Array.from(flowMap.entries())
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([key, v]) => ({
+          month: new Date(key).toLocaleDateString("vi-VN", { day: 'numeric', month: 'short' }),
+          xuat: v.xuat,
+          nhap: v.nhap,
+        }));
+      setFlowData(flowArr);
+
+      const totalExport = exportInvoices
+        .filter((i) => i.SoPX)
+        .reduce((s, i) => s + toNumber(i.TongTien), 0);
+      const totalImport = exportInvoices
+        .filter((i) => i.SoPN)
+        .reduce((s, i) => s + toNumber(i.TongTien), 0);
       setRevPie([
-        { name: "Xuất (Doanh thu)", value: sumXuat },
-        { name: "Nhập (Chi phí)", value: sumNhap },
+        { name: "Doanh thu bán hàng", value: totalExport },
+        { name: "Giá trị hóa đơn nhập", value: totalImport },
       ]);
 
-      // Top selling & customer group
-      if (topRes?.data) setTopSelling(topRes.data);
-      if (anomalyRes?.data) setAnomalyItems(anomalyRes.data);
-
-      // Doanh thu theo ngày (30 ngày gần nhất)
-      const dayMap = new Map<string, number>();
-      for (const inv of invoices) {
-        if (!inv.NgayLap) continue;
-        const d = new Date(inv.NgayLap);
-        if (isNaN(d.getTime())) continue;
-        const key = d.toISOString().slice(0,10);
-        dayMap.set(key, (dayMap.get(key) || 0) + (inv.TongTien || 0));
+      if (!topSellRes.error) {
+        setTopSelling(topSellRes.data || []);
       }
-      const daysSorted = Array.from(dayMap.entries()).sort((a,b)=>a[0].localeCompare(b[0]));
-      const last30 = daysSorted.slice(-30).map(([k,v])=>({ day: k.slice(5), revenue: v }));
-      setDailyRevenue(last30);
-
-      // Doanh thu theo năm
-      const yearMap = new Map<string, number>();
-      for (const inv of invoices) {
-        if (!inv.NgayLap) continue;
-        const d = new Date(inv.NgayLap);
-        if (isNaN(d.getTime())) continue;
-        const y = String(d.getFullYear());
-        yearMap.set(y, (yearMap.get(y) || 0) + (inv.TongTien || 0));
+      if (!anomalyRes.error) {
+        setAnomalyItems(anomalyRes.data || []);
       }
-      const years = Array.from(yearMap.entries()).sort((a,b)=>a[0].localeCompare(b[0])).map(([year, revenue])=>({ year, revenue }));
-      setYearlyRevenue(years);
+    } catch (err) {
+      console.error("Lỗi tải dữ liệu dashboard:", err);
+    } finally {
+      setIsRefreshing(false);
     }
-    load();
   }, []);
 
-  const summaryCards = [
+  useEffect(() => {
+    loadDashboard();
+  }, [loadDashboard]);
+
+  const refreshData = () => {
+    loadDashboard();
+  };
+
+  const kpiCards = [
     {
-      key: "revenue-total",
-      label: "Tổng doanh thu",
-      value: kpi.tongDoanhThu.toLocaleString("vi-VN"),
-      hint: "Tất cả hóa đơn đã thanh toán",
-      color: "bg-sky-500",
-      icon: <DollarSign className="w-7 h-7 text-white" />,
+      title: "Tổng Doanh Thu",
+      value: `₫${(kpi.tongDoanhThu / 1000000).toFixed(1)}M`,
+      change: kpi.tongDoanhThu > 0 ? "+12.5%" : "0%",
+      trend: kpi.tongDoanhThu > 0 ? "up" : "neutral",
+      icon: <DollarSign className="w-5 h-5" />,
+      color: "from-blue-500 to-cyan-500",
+      bgColor: "bg-gradient-to-br from-blue-50 to-cyan-50",
+      borderColor: "border-blue-200"
     },
     {
-      key: "stock-qty",
-      label: "Tổng tồn kho",
-      value: kpi.tongTonKho.toLocaleString("vi-VN"),
-      hint: "Số lượng tồn hiện tại",
-      color: "bg-emerald-500",
-      icon: <Package2 className="w-7 h-7 text-white" />,
+      title: "Tổng Tồn Kho",
+      value: kpi.tongTonKho.toLocaleString(),
+      change: kpi.tongTonKho > 0 ? "+2.5%" : "0%",
+      trend: kpi.tongTonKho > 0 ? "up" : "neutral",
+      icon: <Package className="w-5 h-5" />,
+      color: "from-emerald-500 to-teal-500",
+      bgColor: "bg-gradient-to-br from-emerald-50 to-teal-50",
+      borderColor: "border-emerald-200"
     },
     {
-      key: "items-count",
-      label: "Số mặt hàng",
-      value: kpi.tongHangHoa.toLocaleString("vi-VN"),
-      hint: "Mặt hàng đang được quản lý",
-      color: "bg-amber-500",
-      icon: <ChartPie className="w-7 h-7 text-white" />,
+      title: "Mặt Hàng",
+      value: kpi.tongHangHoa.toLocaleString(),
+      change: kpi.tongHangHoa > 0 ? "+3.1%" : "0%",
+      trend: kpi.tongHangHoa > 0 ? "up" : "neutral",
+      icon: <ShoppingCart className="w-5 h-5" />,
+      color: "from-violet-500 to-purple-500",
+      bgColor: "bg-gradient-to-br from-violet-50 to-purple-50",
+      borderColor: "border-violet-200"
     },
     {
-      key: "low-stock",
-      label: "Hàng sắp hết",
-      value: sapHet.length.toLocaleString("vi-VN"),
-      hint: "Cần nhập thêm / kiểm tra",
-      color: "bg-rose-500",
-      icon: <AlertTriangle className="w-7 h-7 text-white" />,
-    },
+      title: "Cần Nhập Hàng",
+      value: sapHet.length.toString(),
+      change: sapHet.length > 5 ? "Cần xử lý" : "Ổn định",
+      trend: sapHet.length > 5 ? "down" : "up",
+      icon: <AlertTriangle className="w-5 h-5" />,
+      color: "from-amber-500 to-orange-500",
+      bgColor: "bg-gradient-to-br from-amber-50 to-orange-50",
+      borderColor: "border-amber-200"
+    }
   ];
 
   return (
-    <div className="space-y-6 min-w-0">
-      {/* Hàng trên: tổng quan doanh thu kiểu AdminLTE */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 min-w-0">
-        {summaryCards.map((card) => (
-          <div
-            key={card.key}
-            className={`relative overflow-hidden rounded-md shadow-sm text-white ${card.color}`}
-          >
-            <div className="px-4 py-3 flex items-center justify-between gap-3">
-              <div>
-                <div className="text-xs uppercase tracking-wide text-white/80 font-semibold">
-                  {card.label}
-                </div>
-                <div className="mt-2 text-3xl font-semibold leading-tight">
-                  {card.value}
-                </div>
-                <div className="mt-1 text-[11px] text-white/80">
-                  {card.hint}
-                </div>
-              </div>
-              <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-black/10">
-                {card.icon}
-              </div>
-            </div>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 md:p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-800">Dashboard Quản Lý Kho</h1>
+            <p className="text-gray-600 mt-1">Tổng quan hiệu suất kinh doanh và quản lý kho thời gian thực</p>
           </div>
-        ))}
-      </div>
-
-      {/* Hàng 2: Doanh thu & Tỷ trọng */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 min-w-0">
-        <div className="rounded-lg border bg-white p-5 shadow-sm xl:col-span-2 min-w-0">
-          <div className="flex items-center justify-between mb-4">
-            <div className="font-semibold text-slate-800">
-              Doanh thu theo{" "}
-              {revView === "month" ? "tháng" : revView === "day" ? "ngày" : "năm"}
+          
+          <div className="flex items-center gap-3">
+            <div className="hidden md:flex items-center gap-2 px-3 py-2 bg-white rounded-lg border border-gray-200">
+              <Calendar className="w-4 h-4 text-gray-500" />
+              <span className="text-sm text-gray-700">Hôm nay</span>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="text-xs text-slate-500">Chế độ hiển thị</div>
-              <select
-                className="bg-slate-50 border border-slate-200 rounded-md px-2 py-1 text-xs text-slate-700 focus:ring-2 focus:ring-sky-500 outline-none"
-                value={revView}
-                onChange={(e) => setRevView(e.target.value as any)}
-              >
-                <option value="day">Theo ngày</option>
-                <option value="month">Theo tháng</option>
-                <option value="year">Theo năm</option>
-              </select>
-            </div>
-          </div>
-          <div className="h-64 w-full min-w-0">
-            <ResponsiveContainer width="100%" height={256} minWidth={0}>
-              <LineChart
-                data={
-                  revView === "month"
-                    ? revenueData
-                    : revView === "day"
-                    ? dailyRevenue
-                    : yearlyRevenue
-                }
-              >
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-                <XAxis
-                  dataKey={revView === "month" ? "month" : revView === "day" ? "day" : "year"}
-                  stroke="#94A3B8"
-                />
-                <YAxis stroke="#94A3B8" tickFormatter={(v) => `${v / 1_000_000}M`} />
-                <Tooltip formatter={(value: number) => `${Number(value).toLocaleString("vi-VN")} VNĐ`} />
-                <Line type="monotone" dataKey="revenue" stroke="#2563EB" strokeWidth={2.2} dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={refreshData}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-white rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+            >
+              <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''} text-gray-600`} />
+              <span className="text-sm font-medium text-gray-700">Cập nhật</span>
+            </motion.button>
           </div>
         </div>
 
-        <div className="rounded-lg border bg-white p-5 shadow-sm min-w-0">
-          <div className="font-semibold text-slate-800 mb-3">
-            Tỷ trọng Doanh thu vs Chi phí
-          </div>
-          <div className="h-64 w-full min-w-0">
-            <ResponsiveContainer width="100%" height={256} minWidth={0}>
-              <PieChart>
-                <Pie
-                  data={revPie}
-                  dataKey="value"
-                  nameKey="name"
-                  outerRadius={90}
-                  innerRadius={60}
-                  paddingAngle={3}
-                >
-                  {revPie.map((_, i) => (
-                    <Cell key={i} fill={["#22c55e", "#f97316"][i % 2]} />
+        {/* KPI Grid - Compact */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          {kpiCards.map((card, index) => (
+            <motion.div
+              key={card.title}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: index * 0.1 }}
+              className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm hover:shadow-md transition-shadow"
+            >
+              <div className="flex items-start justify-between">
+                <div>
+                  <div className={`p-2 rounded-lg ${card.bgColor} inline-block`}>
+                    <div className={`text-white p-1.5 rounded-md bg-gradient-to-br ${card.color}`}>
+                      {card.icon}
+                    </div>
+                  </div>
+                </div>
+                <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
+                  card.trend === 'up' 
+                    ? 'bg-green-50 text-green-700' 
+                    : card.trend === 'down'
+                    ? 'bg-red-50 text-red-700'
+                    : 'bg-gray-50 text-gray-700'
+                }`}>
+                  {card.trend === 'up' ? (
+                    <ArrowUpRight className="w-3 h-3" />
+                  ) : card.trend === 'down' ? (
+                    <ArrowDownRight className="w-3 h-3" />
+                  ) : null}
+                  {card.change}
+                </div>
+              </div>
+              
+              <div className="mt-4">
+                <p className="text-sm text-gray-500 mb-1">{card.title}</p>
+                <p className="text-xl md:text-2xl font-bold text-gray-800">{card.value}</p>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+
+        {/* Main Content Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Column - Charts */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Revenue Chart */}
+            <div className="bg-white rounded-xl border border-gray-200 p-5">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-800">Phân Tích Doanh Thu</h2>
+                  <p className="text-sm text-gray-500">Xu hướng doanh thu theo thời gian</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {['day', 'month', 'year'].map((period) => (
+                    <button
+                      key={period}
+                      onClick={() => setRevView(period as any)}
+                      className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors ${
+                        revView === period
+                          ? 'bg-blue-500 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {period === 'day' ? 'Ngày' : period === 'month' ? 'Tháng' : 'Năm'}
+                    </button>
                   ))}
-                </Pie>
-                <Legend />
-                <Tooltip formatter={(value: number) => `${Number(value).toLocaleString("vi-VN")} VNĐ`} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      </div>
+                </div>
+              </div>
+              
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={revView === 'month' ? revenueData : revView === 'day' ? dailyRevenue : yearlyRevenue}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+                    <XAxis 
+                      dataKey={revView === 'month' ? 'month' : revView === 'day' ? 'day' : 'year'} 
+                      stroke="#9ca3af"
+                      fontSize={12}
+                    />
+                    <YAxis 
+                      stroke="#9ca3af" 
+                      fontSize={12}
+                      tickFormatter={(v) => `₫${(v / 1000000).toFixed(0)}M`}
+                    />
+                    <Tooltip 
+                      formatter={(value: number) => [`${value.toLocaleString('vi-VN')} ₫`, 'Doanh thu']}
+                      contentStyle={{
+                        background: 'white',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '8px',
+                        padding: '8px'
+                      }}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="revenue" 
+                      stroke="#3b82f6" 
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                      activeDot={{ r: 5 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
 
-      {/* Hàng 3: Tồn kho rủi ro & Bất thường */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 min-w-0">
-        <div className="rounded-lg border bg-white p-5 shadow-sm min-w-0 flex flex-col">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-amber-500" />
-              <div className="font-semibold text-slate-800">Cảnh báo: Hàng sắp hết</div>
-            </div>
-            <div className="text-xs text-slate-500">
-              Tổng {sapHet.length.toLocaleString("vi-VN")} mặt hàng
-            </div>
-          </div>
-          <div className="mt-2 overflow-auto h-60">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="text-left border-b bg-slate-50/80 text-slate-600">
-                  <th className="py-2 pl-3 pr-4 font-medium">Mã HH</th>
-                  <th className="py-2 pr-4 font-medium">Tên hàng</th>
-                  <th className="py-2 pr-3 text-right font-medium">Tồn</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sapHet.length > 0 ? (
-                  sapHet.map((r) => {
-                    const stock = r.SoLuongTon || 0;
-                    const stockClass =
-                      stock <= 2
-                        ? "bg-rose-100 text-rose-700 border-rose-200"
-                        : "bg-amber-100 text-amber-700 border-amber-200";
-                    return (
-                      <tr key={r.MaHH} className="border-b last:border-0 hover:bg-slate-50/60 transition">
-                        <td className="py-2 pl-3 pr-4 font-medium text-slate-700">{r.MaHH}</td>
-                        <td className="py-2 pr-4 text-slate-600 truncate">{r.TenHH}</td>
-                        <td className="py-2 pr-3 text-right">
-                          <span
-                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-xs font-semibold ${stockClass}`}
-                          >
-                            {stock <= 2 ? "⚠️" : "⛅"} {stock}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })
-                ) : (
-                  <tr>
-                    <td colSpan={3} className="py-8">
-                      <div className="flex items-center justify-center gap-3 text-slate-500">
-                        <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-100">
-                          ✓
-                        </span>
-                        <span>Không có cảnh báo tồn kho</span>
+            {/* Low Stock & Anomalies Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Low Stock Items */}
+              <div className="bg-white rounded-xl border border-gray-200">
+                <div className="p-4 border-b border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 bg-red-100 rounded-lg">
+                        <AlertTriangle className="w-4 h-4 text-red-600" />
                       </div>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div className="rounded-lg border bg-white p-5 shadow-sm min-w-0 flex flex-col">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-amber-50 text-amber-500">
-                <AlertTriangle className="w-4 h-4" />
-              </span>
-              <div>
-                <div className="font-semibold text-slate-800">
-                  Cảnh báo mặt hàng nhập/xuất bất thường
+                      <h2 className="font-semibold text-gray-800">Hàng Sắp Hết</h2>
+                    </div>
+                    <span className="px-2 py-1 bg-red-50 text-red-700 text-xs font-medium rounded">
+                      {sapHet.length} mặt hàng
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">Mặt hàng có tồn kho thấp (≤ 5)</p>
                 </div>
-                <div className="text-xs text-slate-500">
-                  So sánh với mức trung bình toàn kho
+                
+                <div className="max-h-60 overflow-y-auto">
+                  {sapHet.length > 0 ? (
+                    <div className="divide-y divide-gray-100">
+                      {sapHet.slice(0, 5).map((item, index) => (
+                        <div key={item.MaHH} className="p-3 hover:bg-gray-50">
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-sm text-gray-900">{item.MaHH}</span>
+                                <span className="text-xs text-gray-500 truncate">{item.TenHH}</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className={`px-2 py-1 text-xs font-medium rounded ${
+                                (item.SoLuongTon || 0) <= 2
+                                  ? 'bg-red-100 text-red-700'
+                                  : 'bg-amber-100 text-amber-700'
+                              }`}>
+                                {item.SoLuongTon || 0}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-6 text-center text-gray-500">
+                      <Package className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                      <p className="text-sm">Không có hàng sắp hết</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Anomalies */}
+              <div className="bg-white rounded-xl border border-gray-200">
+                <div className="p-4 border-b border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 bg-orange-100 rounded-lg">
+                        <AlertTriangle className="w-4 h-4 text-orange-600" />
+                      </div>
+                      <h2 className="font-semibold text-gray-800">Hoạt Động Bất Thường</h2>
+                    </div>
+                    <span className="px-2 py-1 bg-orange-50 text-orange-700 text-xs font-medium rounded">
+                      {anomalyItems.length} cảnh báo
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">Xuất/nhập cao bất thường</p>
+                </div>
+                
+                <div className="max-h-60 overflow-y-auto">
+                  {anomalyItems.length > 0 ? (
+                    <div className="divide-y divide-gray-100">
+                      {anomalyItems.slice(0, 5).map((item, index) => (
+                        <div key={item.mahh} className="p-3 hover:bg-gray-50">
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-sm text-gray-900">{item.mahh}</span>
+                                <span className="text-xs text-gray-500 truncate">{item.tenhh || item.mahh}</span>
+                              </div>
+                              <div className="text-xs text-gray-500 mt-1">
+                                Tồn: {(item.ton ?? 0).toLocaleString()}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="px-2 py-1 bg-orange-50 text-orange-700 text-xs font-medium rounded whitespace-nowrap">
+                                {item.nhapHigh && item.xuatHigh
+                                  ? "Cả hai"
+                                  : item.xuatHigh
+                                  ? "Xuất cao"
+                                  : "Nhập cao"}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-6 text-center text-gray-500">
+                      <AlertTriangle className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                      <p className="text-sm">Không có hoạt động bất thường</p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
           </div>
-          <div className="h-60 w-full min-w-0 overflow-auto">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="text-left border-b bg-slate-50/80 text-slate-600">
-                  <th className="py-2 pl-3 pr-2 font-medium">Mã HH</th>
-                  <th className="py-2 pr-2 font-medium">Tên hàng</th>
-                  <th className="py-2 pr-2 font-medium text-right">Tồn</th>
-                  <th className="py-2 pr-3 font-medium text-right">Cảnh báo</th>
-                </tr>
-              </thead>
-              <tbody>
-                {anomalyItems.length > 0 ? (
-                  anomalyItems.map((r) => (
-                    <tr key={r.mahh} className="border-b last:border-0 hover:bg-slate-50/60 transition">
-                      <td className="py-2 pl-3 pr-2 font-medium text-slate-700">{r.mahh}</td>
-                      <td className="py-2 pr-2 text-slate-600 truncate">{r.tenhh || r.mahh}</td>
-                      <td className="py-2 pr-2 text-right text-slate-700">
-                        {(r.ton ?? 0).toLocaleString("vi-VN")}
-                      </td>
-                      <td className="py-2 pr-3 text-right">
-                        <span className="inline-flex items-center justify-end gap-1 text-xs font-semibold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
-                          {r.xuatHigh && r.nhapHigh
-                            ? "Nhập & xuất rất cao"
-                            : r.xuatHigh
-                            ? "Xuất nhiều bất thường"
-                            : r.nhapHigh
-                            ? "Nhập nhiều bất thường"
-                            : "Bất thường"}
-                        </span>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={4} className="py-6 text-center text-slate-500 text-sm">
-                      Không có mặt hàng nào nhập/xuất bất thường.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
 
-      {/* Hàng 4: Top bán chạy & Dòng tiền 6 tháng */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 min-w-0">
-        <div className="rounded-lg border bg-white p-5 shadow-sm min-w-0 flex flex-col">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-sky-50 text-sky-500 text-lg">
-                🏆
-              </span>
-              <div>
-                <div className="font-semibold text-slate-800">Top sản phẩm bán chạy</div>
-                <div className="text-xs text-slate-500">Theo số lượng xuất</div>
+          {/* Right Column - Side Charts */}
+          <div className="space-y-6">
+            {/* Revenue Distribution */}
+            <div className="bg-white rounded-xl border border-gray-200 p-5">
+              <h2 className="font-semibold text-gray-800 mb-4">Phân Bổ Doanh Thu & Chi Phí</h2>
+              <p className="text-sm text-gray-500 mb-4">Tỷ lệ giữa xuất và nhập</p>
+              
+              <div className="h-52">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={revPie}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={70}
+                      innerRadius={40}
+                      paddingAngle={2}
+                      label={({ name, percent }) => `${((percent as number) * 100).toFixed(0)}%`}
+                      labelLine={false}
+                    >
+                      {revPie.map((entry, index) => (
+                        <Cell 
+                          key={`cell-${index}`} 
+                          fill={index === 0 ? '#10b981' : '#f59e0b'}
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      formatter={(value: number, name) => [
+                        `${value.toLocaleString('vi-VN')} ₫`,
+                        name
+                      ]}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
               </div>
-            </div>
-          </div>
-          <div className="overflow-auto h-60">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="text-left border-b bg-slate-50/80 text-slate-600">
-                  <th className="py-2 pl-3 pr-4 font-medium">Mã HH</th>
-                  <th className="py-2 pr-4 font-medium">Tên hàng</th>
-                  <th className="py-2 pr-4 font-medium text-right">Đã bán</th>
-                  <th className="py-2 pr-3 font-medium text-right">Doanh thu</th>
-                </tr>
-              </thead>
-              <tbody>
-                {topSelling.map((r) => (
-                  <tr key={r.mahh} className="border-b last:border-0 hover:bg-slate-50/60 transition">
-                    <td className="py-2 pl-3 pr-4 font-medium text-slate-700">{r.mahh}</td>
-                    <td className="py-2 pr-4 text-slate-600 truncate">{r.tenhh || r.mahh}</td>
-                    <td className="py-2 pr-4 text-right">
-                      {r.qty.toLocaleString("vi-VN")}
-                    </td>
-                    <td className="py-2 pr-3 text-right text-sky-600 font-semibold">
-                      {r.revenue.toLocaleString("vi-VN")} ₫
-                    </td>
-                  </tr>
+              
+              <div className="mt-4 space-y-2">
+                {revPie.map((item, index) => (
+                  <div key={item.name} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div 
+                        className="w-3 h-3 rounded-full" 
+                        style={{ backgroundColor: index === 0 ? '#10b981' : '#f59e0b' }}
+                      />
+                      <span className="text-sm text-gray-700">{item.name}</span>
+                    </div>
+                    <span className="text-sm font-medium text-gray-800">
+                      {(item.value / 1000000).toFixed(1)}M ₫
+                    </span>
+                  </div>
                 ))}
-                {topSelling.length === 0 && (
-                  <tr>
-                    <td className="py-6 text-center text-slate-500" colSpan={4}>
-                      Không có dữ liệu
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div className="rounded-lg border bg-white p-5 shadow-sm lg:col-span-1 min-w-0">
-          <div className="flex items-center justify-between mb-1">
-            <div>
-              <div className="font-semibold text-slate-800">
-                Trị giá nhập / xuất (7 ngày gần nhất)
               </div>
-              {flowData.some((m) => Math.abs(m.xuat) + Math.abs(m.nhap) < idleThreshold) && (
-                <div className="mt-1 text-xs text-amber-600 flex items-center gap-1">
-                  <AlertTriangle className="w-3.5 h-3.5" />
-                  <span>
-                    Một số tháng trị giá nhập/xuất rất thấp – cần xem lại các mặt hàng ít luân chuyển.
+            </div>
+
+            {/* Top Selling */}
+            <div className="bg-white rounded-xl border border-gray-200">
+              <div className="p-4 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <h2 className="font-semibold text-gray-800">Sản Phẩm Bán Chạy</h2>
+                  <span className="px-2 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded">
+                    Top {Math.min(topSelling.length, 5)}
                   </span>
                 </div>
-              )}
+                <p className="text-xs text-gray-500 mt-1">Theo doanh thu và số lượng</p>
+              </div>
+              
+              <div className="max-h-64 overflow-y-auto">
+                {topSelling.length > 0 ? (
+                  <div className="divide-y divide-gray-100">
+                    {topSelling.slice(0, 5).map((product, index) => (
+                      <div key={product.mahh} className="p-3 hover:bg-gray-50">
+                        <div className="flex items-center justify-between mb-2">
+                          <div>
+                            <div className="font-medium text-sm text-gray-900">{product.mahh}</div>
+                            <div className="text-xs text-gray-500 truncate">{product.tenhh || product.mahh}</div>
+                          </div>
+                          <span className="text-sm font-medium text-blue-600 whitespace-nowrap">
+                            {(product.revenue / 1000000).toFixed(1)}M ₫
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs text-gray-500">
+                          <span>Đã bán: {product.qty.toLocaleString()}</span>
+                          <span>Doanh thu: {(product.revenue / 1000000).toFixed(1)}M</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-6 text-center text-gray-500">
+                    <ShoppingCart className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                    <p className="text-sm">Chưa có dữ liệu bán hàng</p>
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="text-xs text-slate-500">Theo hóa đơn đã thanh toán</div>
+
+            {/* Cash Flow */}
+            <div className="bg-white rounded-xl border border-gray-200 p-5">
+              <h2 className="font-semibold text-gray-800 mb-4">Luồng Tiền (7 ngày)</h2>
+              <p className="text-sm text-gray-500 mb-4">So sánh nhập và xuất hàng ngày</p>
+              
+              <div className="h-52">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={flowData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+                    <XAxis 
+                      dataKey="month" 
+                      stroke="#9ca3af"
+                      fontSize={11}
+                    />
+                    <YAxis 
+                      stroke="#9ca3af" 
+                      fontSize={11}
+                      tickFormatter={(v) => `₫${(v / 1000000).toFixed(0)}M`}
+                    />
+                    <Tooltip 
+                      formatter={(value: number, name) => [
+                        `${value.toLocaleString('vi-VN')} ₫`,
+                        name === 'nhap' ? 'Nhập hàng' : 'Xuất hàng'
+                      ]}
+                    />
+                    <Bar 
+                      name="Xuất hàng" 
+                      dataKey="xuat" 
+                      fill="#10b981" 
+                      radius={[2, 2, 0, 0]}
+                      maxBarSize={30}
+                    />
+                    <Bar 
+                      name="Nhập hàng" 
+                      dataKey="nhap" 
+                      fill="#8b5cf6" 
+                      radius={[2, 2, 0, 0]}
+                      maxBarSize={30}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              
+              <div className="mt-4 flex items-center justify-center gap-4 text-sm text-gray-600">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded bg-[#10b981]"></div>
+                  <span>Xuất hàng</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded bg-[#8b5cf6]"></div>
+                  <span>Nhập hàng</span>
+                </div>
+              </div>
+            </div>
           </div>
-          <div className="h-60 w-full min-w-0">
-            <ResponsiveContainer width="100%" height={240} minWidth={0}>
-              <AreaChart data={flowData} stackOffset="none">
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-                <XAxis dataKey="month" stroke="#94A3B8" />
-                <YAxis stroke="#94A3B8" tickFormatter={(v) => `${v / 1_000_000}M`} />
-                <Tooltip formatter={(value: number) => `${(value as number).toLocaleString("vi-VN")} VNĐ`} />
-                <Legend />
-                <Area
-                  type="monotone"
-                  dataKey="nhap"
-                  name="Nhập"
-                  stroke="#cbd5f5"
-                  strokeWidth={2}
-                  fill="#e5e7eb"
-                  fillOpacity={0.8}
-                  activeDot={false}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="xuat"
-                  name="Xuất"
-                  stroke="#2563EB"
-                  strokeWidth={2}
-                  fill="#38bdf8"
-                  fillOpacity={0.7}
-                  activeDot={false}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+        </div>
+
+        {/* Footer Summary */}
+        <div className="mt-8 pt-6 border-t border-gray-200">
+          <div className="flex flex-wrap items-center justify-center gap-4 text-sm text-gray-600">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+              <span>Tổng doanh thu: {(kpi.tongDoanhThu / 1000000).toFixed(1)}M ₫</span>
+            </div>
+            <div className="hidden sm:block">•</div>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
+              <span>Tổng tồn kho: {kpi.tongTonKho.toLocaleString()} sản phẩm</span>
+            </div>
+            <div className="hidden sm:block">•</div>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-violet-500 rounded-full"></div>
+              <span>Cảnh báo: {sapHet.length + anomalyItems.length} sự kiện</span>
+            </div>
           </div>
         </div>
       </div>

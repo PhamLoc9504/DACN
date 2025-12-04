@@ -6,14 +6,34 @@ import { supabase, type Tables } from '@/lib/supabaseClient';
 import Modal from '@/components/Modal';
 import Button from '@/components/Button';
 import { BarcodeScanner } from '@/components/BarcodeScanner';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { motion } from 'framer-motion';
-import { Calendar, Search } from 'lucide-react';
+import { 
+  Search, 
+  Filter, 
+  Download, 
+  Plus, 
+  Barcode, 
+  Package, 
+  TrendingUp, 
+  AlertTriangle,
+  Edit,
+  Trash2,
+  Eye,
+  ChevronRight,
+  CheckCircle,
+  XCircle,
+  Hash,
+  Tag,
+  DollarSign,
+  Box,
+  Building
+} from 'lucide-react';
+
+type HangHoaRow = Tables['HangHoa'] & { Barcode?: string; Quantity?: string };
 
 export default function HangHoaPage() {
   // State quản lý dữ liệu
-  const [rows, setRows] = useState<Tables['HangHoa'][]>([]);
+  const [rows, setRows] = useState<HangHoaRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
   const [loai, setLoai] = useState<string>('');
@@ -25,10 +45,10 @@ export default function HangHoaPage() {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<'create' | 'edit'>('create');
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
-  const [viewOnly, setViewOnly] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<HangHoaRow | null>(null);
 
   // State quản lý form
-  const empty: Tables['HangHoa'] & { Barcode?: string; Quantity?: string } = {
+  const empty: HangHoaRow = {
     MaHH: '',
     TenHH: '',
     MaLoai: '',
@@ -40,33 +60,30 @@ export default function HangHoaPage() {
     Quantity: '',
   };
 
-  const [form, setForm] = useState<Tables['HangHoa'] & { Barcode?: string; Quantity?: string }>(empty);
+  const [form, setForm] = useState<HangHoaRow>(empty);
 
   // Hàm xử lý khi quét mã vạch thành công
   const handleBarcodeScanned = async (barcode: string) => {
     console.log('Mã vạch đã quét:', barcode);
 
     try {
-      // 1. Ưu tiên kiểm tra trong kho trước theo Barcode
       const existRes = await fetch(`/api/hang-hoa?barcode=${encodeURIComponent(barcode)}`);
       const existData = await existRes.json();
 
       if (existRes.ok && Array.isArray(existData.data) && existData.data.length > 0) {
-        // Đã có hàng hóa trong kho với barcode này -> chỉ xem
-        const item = existData.data[0] as Tables['HangHoa'] & { Barcode?: string; Quantity?: string };
+        const item = existData.data[0] as HangHoaRow;
+        setSelectedItem(item);
         setForm(item);
         setMode('edit');
-        setViewOnly(true);
-        setShowBarcodeScanner(false);
         setOpen(true);
+        setShowBarcodeScanner(false);
         return;
       }
     } catch (err) {
       console.error('Lỗi khi kiểm tra hàng hóa theo mã vạch:', err);
     }
 
-    // 2. Nếu chưa có trong kho: tạo mới với Barcode đã quét, cố gắng lấy thêm info từ API bên ngoài
-    let nextForm: Tables['HangHoa'] & { Barcode?: string; Quantity?: string } = {
+    let nextForm: HangHoaRow = {
       ...empty,
       Barcode: barcode,
     };
@@ -79,7 +96,6 @@ export default function HangHoaPage() {
         nextForm = {
           ...nextForm,
           TenHH: data.TenHH || nextForm.TenHH,
-          // Không dùng Quantity làm ĐVT nữa, chỉ điền vào field Quantity riêng
           Quantity: data.Quantity || nextForm.Quantity,
         };
       } else {
@@ -89,14 +105,14 @@ export default function HangHoaPage() {
       console.error('Lỗi khi gọi API mã vạch bên ngoài:', err);
     }
 
+    setSelectedItem(null);
     setForm(nextForm);
     setMode('create');
-    setViewOnly(false);
     setShowBarcodeScanner(false);
-    setOpen(true); // Mở form thêm mới
+    setOpen(true);
   };
 
-  // Sinh mã hàng hóa tự động dạng HHxx dựa trên các mã hiện có
+  // Sinh mã hàng hóa tự động
   async function generateNextMaHH() {
     try {
       const params = new URLSearchParams();
@@ -115,7 +131,6 @@ export default function HangHoaPage() {
         }
       }
       const next = maxNum + 1;
-      // HH01, HH02, HH03, ...
       return `HH${String(next).padStart(2, '0')}`;
     } catch (e) {
       console.error('Lỗi khi sinh MaHH tự động:', e);
@@ -139,7 +154,7 @@ export default function HangHoaPage() {
           fetch('/api/nha-cc').then((r) => r.json()).catch(() => ({ data: [] })),
         ]);
 
-        setRows(hangRes.data || []);
+        setRows((hangRes.data || []) as HangHoaRow[]);
         setTotal(hangRes.total || 0);
         setLoaiList(loaiRes.data || []);
         setNccList(nccRes.data || []);
@@ -166,6 +181,10 @@ export default function HangHoaPage() {
   );
 
   const lowStock = useMemo(() => rows.filter((r) => (r.SoLuongTon || 0) <= LOW_THRESHOLD), [rows]);
+  const totalValue = useMemo(() => 
+    rows.reduce((sum, item) => sum + (item.DonGia || 0) * (item.SoLuongTon || 0), 0), 
+    [rows]
+  );
 
   async function refresh() {
     setPage(1);
@@ -174,12 +193,11 @@ export default function HangHoaPage() {
     params.set('page', '1');
     params.set('limit', String(limit));
     const res = await fetch(`/api/hang-hoa?${params.toString()}`).then((r) => r.json());
-    setRows(res.data || []);
+    setRows((res.data || []) as HangHoaRow[]);
     setTotal(res.total || 0);
   }
 
   async function handleCreate() {
-    // Nếu MaHH đang trống, tự sinh mã mới dạng HHxx
     let maHH = form.MaHH?.trim();
     if (!maHH) {
       maHH = await generateNextMaHH();
@@ -194,7 +212,7 @@ export default function HangHoaPage() {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      alert(data.error || 'Lưu hàng hóa thất bại. Vui lòng kiểm tra lại các trường bắt buộc (Mã HH, Tên HH, ĐVT, Loại, Nhà cung cấp...).');
+      alert(data.error || 'Lưu hàng hóa thất bại. Vui lòng kiểm tra lại các trường bắt buộc.');
       return;
     }
     setOpen(false);
@@ -214,14 +232,6 @@ export default function HangHoaPage() {
     }
     setOpen(false);
     await refresh();
-  }
-
-  async function adjustStock(mahh: string, delta: number) {
-    const item = rows.find((r) => r.MaHH === mahh);
-    if (!item) return;
-    const next = Math.max(0, (item.SoLuongTon || 0) + delta);
-    await supabase.from('HangHoa').update({ SoLuongTon: next }).eq('MaHH', mahh);
-    setRows((prev) => prev.map((r) => (r.MaHH === mahh ? { ...r, SoLuongTon: next } as any : r)));
   }
 
   async function exportCSV() {
@@ -257,315 +267,592 @@ export default function HangHoaPage() {
         alert(body.error || 'Xóa thất bại. Có thể hàng hóa đang được tham chiếu trong phiếu/chi tiết.');
         return;
       }
+      setOpen(false);
       await refresh();
     } catch (e: any) {
       alert(e.message || 'Xóa thất bại');
     }
   }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-white via-[#fff7f9] to-[#fff1f3] p-8 text-gray-800">
-      <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h1 className="text-3xl font-extrabold text-[#b03f5a] tracking-tight">📦 Quản lý hàng hóa</h1>
-              <p className="text-sm text-gray-500">Giao diện sang trọng • thân thiện • tối ưu cho quản kho</p>
-            </div>
+  const handleRowClick = (item: HangHoaRow) => {
+    setSelectedItem(item);
+    setForm(item as any);
+    setMode('edit');
+    setOpen(true);
+  };
 
+  return (
+    <div className="min-h-screen bg-gray-50 p-4 md:p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Header Section */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Quản lý Hàng hóa</h1>
+              <p className="text-gray-600 mt-1">Tổng quan và quản lý toàn bộ hàng hóa trong kho</p>
+            </div>
+            
             <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 bg-white/60 border border-[#fde8ee] rounded-2xl px-3 py-2 shadow-sm">
-                <Search className="text-[#c75a72]" />
+              <Button
+                variant="secondary"
+                onClick={() => setShowBarcodeScanner(true)}
+                className="hidden md:flex items-center gap-2"
+              >
+                <Barcode className="w-4 h-4" />
+                Quét mã vạch
+              </Button>
+              
+              <Button
+                variant="primary"
+                onClick={() => { 
+                  setMode('create'); 
+                  setSelectedItem(null);
+                  setForm(empty); 
+                  setOpen(true); 
+                }}
+                className="flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                Thêm hàng hóa
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-sm transition-shadow cursor-pointer" onClick={() => handleRowClick(rows[0] || empty)}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500 mb-1">Tổng mặt hàng</p>
+                <p className="text-2xl font-bold text-gray-900">{rows.length}</p>
+              </div>
+              <div className="p-2 bg-blue-50 rounded-lg">
+                <Package className="w-5 h-5 text-blue-600" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-sm transition-shadow cursor-pointer" onClick={() => handleRowClick(rows[0] || empty)}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500 mb-1">Tổng giá trị kho</p>
+                <p className="text-2xl font-bold text-gray-900">{(totalValue / 1000000).toFixed(1)}M ₫</p>
+              </div>
+              <div className="p-2 bg-green-50 rounded-lg">
+                <TrendingUp className="w-5 h-5 text-green-600" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-sm transition-shadow cursor-pointer" onClick={() => lowStock.length > 0 && handleRowClick(lowStock[0])}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500 mb-1">Hàng sắp hết</p>
+                <p className="text-2xl font-bold text-gray-900">{lowStock.length}</p>
+              </div>
+              <div className="p-2 bg-amber-50 rounded-lg">
+                <AlertTriangle className="w-5 h-5 text-amber-600" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-sm transition-shadow cursor-pointer" onClick={() => handleRowClick(rows[0] || empty)}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500 mb-1">Tổng số lượng</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {rows.reduce((sum, item) => sum + (item.SoLuongTon || 0), 0).toLocaleString()}
+                </p>
+              </div>
+              <div className="p-2 bg-purple-50 rounded-lg">
+                <Package className="w-5 h-5 text-purple-600" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Filters and Search Bar */}
+        <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
-                  className="w-72 bg-transparent outline-none text-sm text-gray-800 placeholder:text-gray-400"
-                  placeholder="Tìm mã hoặc tên hàng..."
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  placeholder="Tìm kiếm theo mã, tên hàng..."
                   value={q}
                   onChange={(e) => { setQ(e.target.value); setPage(1); }}
                 />
               </div>
+            </div>
 
+            <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
+                <Filter className="w-4 h-4 text-gray-500" />
                 <select
-                  className="bg-white/60 border border-[#fde8ee] rounded-xl px-3 py-2 text-sm outline-none shadow-sm"
+                  className="border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                   value={loai}
                   onChange={(e) => { setLoai(e.target.value); setPage(1); }}
                 >
-                  <option value="">Tất cả loại</option>
+                  <option value="">Tất cả loại hàng</option>
                   {loaiList.map((l) => (
                     <option key={l.MaLoai} value={l.MaLoai}>{l.TenLoai}</option>
                   ))}
                 </select>
-
-                <select
-                  className="bg-white/60 border border-[#fde8ee] rounded-xl px-3 py-2 text-sm outline-none shadow-sm"
-                  value={limit}
-                  onChange={(e) => { setLimit(parseInt(e.target.value)); setPage(1); }}
-                >
-                  <option value={10}>10</option>
-                  <option value={20}>20</option>
-                  <option value={50}>50</option>
-                </select>
-
-                <Button variant="secondary" onClick={exportCSV}>Xuất CSV</Button>
-
-                <Button
-                  variant="secondary"
-                  onClick={() => setShowBarcodeScanner(true)}
-                >
-                  Quét mã
-                </Button>
-
-                <Button
-                  variant="pink"
-                  onClick={() => { setMode('create'); setViewOnly(false); setForm(empty); setOpen(true); }}
-                >
-                  + Thêm hàng
-                </Button>
               </div>
+
+              <Button
+                variant="secondary"
+                onClick={exportCSV}
+                className="flex items-center gap-2"
+              >
+                <Download className="w-4 h-4" />
+                Xuất CSV
+              </Button>
+
+              <select
+                className="border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                value={limit}
+                onChange={(e) => { setLimit(parseInt(e.target.value)); setPage(1); }}
+              >
+                <option value={10}>10 / trang</option>
+                <option value={20}>20 / trang</option>
+                <option value={50}>50 / trang</option>
+              </select>
             </div>
           </div>
+        </div>
 
-          {/* Cảnh báo tồn thấp */}
-          {lowStock.length > 0 && (
-            <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 flex items-start gap-3 mb-6">
-              <span className="text-xl">⚠️</span>
-              <div>
-                <div className="font-medium">Cảnh báo tồn kho thấp</div>
-                <div>Có {lowStock.length} mặt hàng có tồn ≤ {LOW_THRESHOLD}.</div>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {lowStock.slice(0, 6).map((i) => (
-                    <span key={i.MaHH} className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 border border-rose-100">
-                      <span className="font-medium">{i.MaHH}</span>
-                      <span className="text-rose-500">{i.SoLuongTon}</span>
-                    </span>
-                  ))}
-                  {lowStock.length > 6 && <span className="text-rose-500">+{lowStock.length - 6} nữa</span>}
+        {/* Warning Banner */}
+        {lowStock.length > 0 && (
+          <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 hover:shadow-sm transition-shadow cursor-pointer" onClick={() => lowStock.length > 0 && handleRowClick(lowStock[0])}>
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5" />
+              <div className="flex-1">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-semibold text-amber-800">Cảnh báo: Hàng sắp hết</h3>
+                    <p className="text-sm text-amber-700 mt-1">
+                      Có {lowStock.length} mặt hàng có tồn kho ≤ {LOW_THRESHOLD}
+                    </p>
+                  </div>
+                  <span className="px-3 py-1 bg-amber-100 text-amber-800 text-sm font-medium rounded-full flex items-center gap-1">
+                    <AlertTriangle className="w-4 h-4" />
+                    {lowStock.length} sản phẩm
+                  </span>
                 </div>
               </div>
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Table card */}
-          <div className="rounded-3xl bg-white/60 backdrop-blur-sm border border-[#f7e5ea] shadow-lg overflow-hidden">
-            <table className="min-w-full text-sm w-full">
-              <thead>
-                <tr className="text-left bg-transparent text-[#8b3d4f] border-b border-[#f5ebe0]">
-                  <th className="py-4 px-6 font-semibold">Mã HH</th>
-                  <th className="py-4 px-6 font-semibold">Tên hàng</th>
-                  <th className="py-4 px-6 font-semibold">Loại</th>
-                  <th className="py-4 px-6 font-semibold">Đơn giá</th>
-                  <th className="py-4 px-6 font-semibold">Tồn</th>
-                  <th className="py-4 px-6 font-semibold">ĐVT</th>
-                  <th className="py-4 px-6 font-semibold text-right">Thao tác</th>
+        {/* Products Table */}
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    Mã hàng
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    Tên hàng hóa
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    Loại
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    Đơn giá
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    Tồn kho
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    Trạng thái
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    Chi tiết
+                  </th>
                 </tr>
               </thead>
-
-              <tbody>
-                {loading &&
-                  Array.from({ length: 6 }).map((_, i) => (
-                    <tr key={i} className="border-b border-[#f5ebe0] animate-pulse">
-                      {Array.from({ length: 7 }).map((_, j) => (
-                        <td key={j} className="py-4 px-6">
-                          <div className="h-4 w-28 bg-[#ffeef2] rounded" />
-                        </td>
-                      ))}
+              
+              <tbody className="bg-white divide-y divide-gray-200">
+                {loading ? (
+                  Array.from({ length: 8 }).map((_, i) => (
+                    <tr key={i} className="animate-pulse">
+                      <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-16"></div></td>
+                      <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-48"></div></td>
+                      <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-20"></div></td>
+                      <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-24"></div></td>
+                      <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-16"></div></td>
+                      <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-20"></div></td>
+                      <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-12"></div></td>
                     </tr>
-                  ))}
-
-                {!loading && filtered.map((r) => (
-                  <tr
-                    key={r.MaHH}
-                    className="border-b border-[#f5ebe0] hover:bg-[#fff0f4] transition cursor-pointer"
-                    onClick={() => {
-                      setMode('edit');
-                      setForm(r as any);
-                      setViewOnly(true);
-                      setOpen(true);
-                    }}
-                  >
-                    <td className="py-4 px-6 font-medium">{r.MaHH}</td>
-                    <td className="py-4 px-6">{r.TenHH}</td>
-                    <td className="py-4 px-6 text-gray-600">{r.MaLoai}</td>
-                    <td className="py-4 px-6 text-[#b03f5a] font-semibold">{(r.DonGia || 0).toLocaleString('vi-VN')} ₫</td>
-                    <td className={`py-4 px-6 font-semibold ${ (r.SoLuongTon || 0) <= LOW_THRESHOLD ? 'text-red-500' : 'text-green-600' }`}>{r.SoLuongTon}</td>
-                    <td className="py-4 px-6 text-gray-700">{r.DVT}</td>
-                    <td className="py-4 px-6 text-right text-xs text-gray-400">Nhấn để xem</td>
-                  </tr>
-                ))}
-
-                {!loading && filtered.length === 0 && (
+                  ))
+                ) : filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="py-20 text-center text-gray-500 bg-white">
-                      <div className="mx-auto h-12 w-12 rounded-full bg-[#fff0f4] mb-3 flex items-center justify-center text-[#b03f5a]">
-                        <Calendar />
+                    <td colSpan={7} className="px-6 py-12 text-center">
+                      <div className="inline-flex flex-col items-center gap-3">
+                        <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
+                          <Package className="w-6 h-6 text-gray-400" />
+                        </div>
+                        <div>
+                          <p className="text-gray-900 font-medium">Không tìm thấy hàng hóa</p>
+                          <p className="text-gray-500 text-sm mt-1">Thử thay đổi từ khóa tìm kiếm hoặc bộ lọc</p>
+                        </div>
                       </div>
-                      Không có dữ liệu
                     </td>
                   </tr>
+                ) : (
+                  filtered.map((item) => (
+                    <tr 
+                      key={item.MaHH} 
+                      className="hover:bg-gray-50 transition-colors cursor-pointer group"
+                      onClick={() => handleRowClick(item)}
+                    >
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <div className="font-mono font-semibold text-gray-900 flex items-center gap-2">
+                            <Hash className="w-4 h-4 text-gray-400" />
+                            {item.MaHH}
+                          </div>
+                          {item.Barcode && (
+                            <span className="text-xs text-gray-500 hidden md:inline">({item.Barcode})</span>
+                          )}
+                        </div>
+                      </td>
+                      
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
+                            <Package className="w-4 h-4 text-blue-600" />
+                          </div>
+                          <div className="flex-1">
+                            <div className="font-medium text-gray-900">{item.TenHH}</div>
+                            <div className="text-xs text-gray-500 mt-1 truncate max-w-xs">
+                              {item.Quantity || 'Không có mô tả'}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <Tag className="w-4 h-4 text-gray-400" />
+                          <span className="text-gray-700">{item.MaLoai}</span>
+                        </div>
+                      </td>
+                      
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <DollarSign className="w-4 h-4 text-gray-400" />
+                          <span className="font-semibold text-gray-900">
+                            {(item.DonGia || 0).toLocaleString('vi-VN')} ₫
+                          </span>
+                        </div>
+                      </td>
+                      
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <Box className="w-4 h-4 text-gray-400" />
+                          <span className={`font-semibold ${
+                            (item.SoLuongTon || 0) <= LOW_THRESHOLD 
+                              ? 'text-red-600' 
+                              : 'text-green-600'
+                          }`}>
+                            {item.SoLuongTon}
+                          </span>
+                        </div>
+                      </td>
+                      
+                      <td className="px-6 py-4">
+                        {(item.SoLuongTon || 0) <= LOW_THRESHOLD ? (
+                          <div className="inline-flex items-center gap-1 px-2 py-1 bg-red-100 text-red-800 text-xs font-medium rounded">
+                            <XCircle className="w-3 h-3" />
+                            <span>Sắp hết</span>
+                          </div>
+                        ) : (
+                          <div className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded">
+                            <CheckCircle className="w-3 h-3" />
+                            <span>Đủ hàng</span>
+                          </div>
+                        )}
+                      </td>
+                      
+                      <td className="px-6 py-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-500">
+                            Click để xem
+                          </span>
+                          <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-blue-600 transition-colors" />
+                        </div>
+                      </td>
+                    </tr>
+                  ))
                 )}
               </tbody>
             </table>
           </div>
+        </div>
 
-          {/* Pagination */}
-          <div className="flex justify-center pt-6">
+        {/* Pagination */}
+        <div className="mt-6">
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-gray-600">
+              Hiển thị <span className="font-medium">{(page - 1) * limit + 1}</span> -{' '}
+              <span className="font-medium">{Math.min(page * limit, total)}</span> trong{' '}
+              <span className="font-medium">{total}</span> hàng hóa
+            </div>
+            
             <Pagination page={page} limit={limit} total={total} onChange={setPage} />
           </div>
-
-          {/* Modal Thêm/Sửa / Xem chi tiết */}
-          <Modal
-            open={open}
-            onClose={() => setOpen(false)}
-            title={viewOnly ? 'Thông tin hàng hóa' : mode === 'create' ? 'Thêm hàng hóa' : 'Sửa hàng hóa'}
-            hideFooter
-          >
-            <form
-              className="space-y-6"
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (viewOnly) { setOpen(false); return; }
-                mode === 'create' ? handleCreate() : handleUpdate();
-              }}
-            >
-              <div className="space-y-4">
-                {mode === 'edit' && (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>Mã HH</Label>
-                      <input className="w-full border rounded-lg px-3 py-2 text-sm bg-gray-50" value={form.MaHH || ''} readOnly />
-                    </div>
-                  </div>
-                )}
-
-                <div>
-                  <Label>Tên hàng</Label>
-                  <input
-                    className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#f3c0cc] disabled:bg-gray-50"
-                    value={form.TenHH || ''}
-                    onChange={(e) => setForm({ ...form, TenHH: e.target.value })}
-                    required
-                    disabled={viewOnly}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Loại</Label>
-                    <select
-                      className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#f3c0cc] disabled:bg-gray-50"
-                      value={form.MaLoai || ''}
-                      onChange={(e) => setForm({ ...form, MaLoai: e.target.value })}
-                      disabled={viewOnly}
-                    >
-                      <option value="">Chọn loại</option>
-                      {loaiList.map((l) => (
-                        <option key={l.MaLoai} value={l.MaLoai}>{l.TenLoai}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <Label>Nhà cung cấp</Label>
-                    <select
-                      className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#f3c0cc] disabled:bg-gray-50"
-                      value={form.MaNCC || ''}
-                      onChange={(e) => setForm({ ...form, MaNCC: e.target.value })}
-                      required
-                      disabled={viewOnly}
-                    >
-                      <option value="">Chọn nhà cung cấp</option>
-                      {nccList.map((ncc) => (
-                        <option key={ncc.MaNCC} value={ncc.MaNCC}>{ncc.TenNCC}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Đơn giá</Label>
-                    <input
-                      type="number"
-                      className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#f3c0cc] disabled:bg-gray-50"
-                      value={form.DonGia || 0}
-                      onChange={(e) => setForm({ ...form, DonGia: Number(e.target.value) })}
-                      disabled={viewOnly}
-                    />
-                  </div>
-
-                  <div>
-                    <Label>Quantity</Label>
-                    <input
-                      className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#f3c0cc] disabled:bg-gray-50"
-                      value={form.Quantity || ''}
-                      onChange={(e) => setForm({ ...form, Quantity: e.target.value })}
-                      placeholder={viewOnly ? '' : 'Ví dụ: 380g, 1L...'}
-                      disabled={viewOnly}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Tồn kho</Label>
-                    <input
-                      type="number"
-                      className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#f3c0cc] disabled:bg-gray-50"
-                      value={form.SoLuongTon || 0}
-                      onChange={(e) => setForm({ ...form, SoLuongTon: Number(e.target.value) })}
-                      disabled={viewOnly}
-                    />
-                  </div>
-
-                  <div>
-                    <Label>ĐVT</Label>
-                    <input
-                      className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#f3c0cc] disabled:bg-gray-50"
-                      value={form.DVT}
-                      onChange={(e) => setForm({ ...form, DVT: e.target.value })}
-                      disabled={viewOnly}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-between items-center gap-3 pt-4 border-t mt-4">
-                {viewOnly && (
-                  <div className="flex flex-wrap gap-2 text-sm">
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      onClick={() => setViewOnly(false)}
-                    >
-                      Sửa
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="danger"
-                      onClick={() => form.MaHH && handleDelete(form.MaHH)}
-                    >
-                      Xóa
-                    </Button>
-                  </div>
-                )}
-                <div className="flex gap-3 ml-auto">
-                  <Button type="button" variant="secondary" onClick={() => setOpen(false)}>Đóng</Button>
-                  {!viewOnly && (<Button type="submit">{mode === 'create' ? 'Tạo' : 'Lưu'}</Button>)}
-                </div>
-              </div>
-            </form>
-          </Modal>
-
-          {/* Barcode Scanner Modal */}
-          {showBarcodeScanner && (
-            <BarcodeScanner
-              open={showBarcodeScanner}
-              onClose={() => setShowBarcodeScanner(false)}
-              onScan={handleBarcodeScanned}
-            />
-          )}
         </div>
-      </motion.div>
+      </div>
+
+      {/* Product Detail Modal */}
+      <Modal
+        open={open}
+        onClose={() => setOpen(false)}
+        title={mode === 'create' ? 'Thêm hàng hóa mới' : 'Chi tiết hàng hóa'}
+      >
+        <div className="space-y-6">
+          {/* Product Header Info */}
+          <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="flex items-start justify-between">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+                  <Package className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="text-lg font-semibold text-gray-900">{form.TenHH || 'Tên hàng hóa mới'}</h3>
+                    {mode === 'edit' && (
+                      <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs font-medium rounded">
+                        {form.MaHH}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-sm text-gray-600 flex items-center gap-4">
+                    <span className="flex items-center gap-1">
+                      <Tag className="w-3 h-3" />
+                      {form.MaLoai || 'Chưa có loại'}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Building className="w-3 h-3" />
+                      {nccList.find(n => n.MaNCC === form.MaNCC)?.TenNCC || 'Chưa có NCC'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              
+              {mode === 'edit' && (
+                <div className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${
+                  (form.SoLuongTon || 0) <= LOW_THRESHOLD
+                    ? 'bg-red-100 text-red-800'
+                    : 'bg-green-100 text-green-800'
+                }`}>
+                  {(form.SoLuongTon || 0) <= LOW_THRESHOLD ? (
+                    <>
+                      <XCircle className="w-4 h-4" />
+                      Sắp hết
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="w-4 h-4" />
+                      Đủ hàng
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Form Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Tên hàng hóa *
+              </label>
+              <input
+                type="text"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
+                value={form.TenHH || ''}
+                onChange={(e) => setForm({ ...form, TenHH: e.target.value })}
+                disabled={mode === 'edit'}
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Mã vạch / Quy cách
+              </label>
+              <input
+                type="text"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
+                value={form.Barcode || ''}
+                onChange={(e) => setForm({ ...form, Barcode: e.target.value })}
+                disabled={mode === 'edit'}
+                placeholder="Nhập mã vạch hoặc quy cách"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Loại hàng *
+              </label>
+              <select
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
+                value={form.MaLoai || ''}
+                onChange={(e) => setForm({ ...form, MaLoai: e.target.value })}
+                disabled={mode === 'edit'}
+                required
+              >
+                <option value="">Chọn loại hàng</option>
+                {loaiList.map((l) => (
+                  <option key={l.MaLoai} value={l.MaLoai}>{l.TenLoai}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Nhà cung cấp *
+              </label>
+              <select
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
+                value={form.MaNCC || ''}
+                onChange={(e) => setForm({ ...form, MaNCC: e.target.value })}
+                disabled={mode === 'edit'}
+                required
+              >
+                <option value="">Chọn nhà cung cấp</option>
+                {nccList.map((ncc) => (
+                  <option key={ncc.MaNCC} value={ncc.MaNCC}>{ncc.TenNCC}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Đơn giá
+              </label>
+              <div className="relative">
+                <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="number"
+                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  value={form.DonGia || 0}
+                  onChange={(e) => setForm({ ...form, DonGia: Number(e.target.value) })}
+                  disabled={mode === 'edit'}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Tồn kho
+              </label>
+              <div className="relative">
+                <Box className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="number"
+                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  value={form.SoLuongTon || 0}
+                  onChange={(e) => setForm({ ...form, SoLuongTon: Number(e.target.value) })}
+                  disabled={mode === 'edit'}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Đơn vị tính *
+              </label>
+              <select
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
+                value={form.DVT}
+                onChange={(e) => setForm({ ...form, DVT: e.target.value })}
+                disabled={mode === 'edit'}
+                required
+              >
+                <option value="Cái">Cái</option>
+                <option value="Chiếc">Chiếc</option>
+                <option value="Kg">Kg</option>
+                <option value="Lít">Lít</option>
+                <option value="Thùng">Thùng</option>
+                <option value="Hộp">Hộp</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Quick Stats */}
+          <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <div className="text-center">
+                <div className="text-gray-500">Mã hàng</div>
+                <div className="font-medium text-gray-900">{form.MaHH || 'Sẽ tạo tự động'}</div>
+              </div>
+              <div className="text-center">
+                <div className="text-gray-500">Giá trị kho</div>
+                <div className="font-medium text-gray-900">
+                  {((form.DonGia || 0) * (form.SoLuongTon || 0)).toLocaleString('vi-VN')} ₫
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="text-gray-500">Đơn vị tính</div>
+                <div className="font-medium text-gray-900">{form.DVT}</div>
+              </div>
+              <div className="text-center">
+                <div className="text-gray-500">Trạng thái</div>
+                <div className="font-medium">
+                  {(form.SoLuongTon || 0) <= LOW_THRESHOLD ? (
+                    <span className="text-red-600">Sắp hết</span>
+                  ) : (
+                    <span className="text-green-600">Đủ hàng</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Modal Footer */}
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
+            <Button
+              variant="secondary"
+              onClick={() => setOpen(false)}
+            >
+              Đóng
+            </Button>
+            
+            {mode === 'create' ? (
+              <Button
+                variant="primary"
+                onClick={handleCreate}
+              >
+                Tạo hàng hóa
+              </Button>
+            ) : (
+              <Button
+                variant="primary"
+                onClick={handleUpdate}
+              >
+                Cập nhật
+              </Button>
+            )}
+          </div>
+        </div>
+      </Modal>
+
+      {/* Barcode Scanner Modal */}
+      {showBarcodeScanner && (
+        <BarcodeScanner
+          open={showBarcodeScanner}
+          onClose={() => setShowBarcodeScanner(false)}
+          onScan={handleBarcodeScanned}
+        />
+      )}
     </div>
   );
 }

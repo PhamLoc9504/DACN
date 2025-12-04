@@ -52,6 +52,7 @@ export async function GET(req: Request) {
 		const enrichedData = await Promise.all(
 			(data || []).map(async (vc: any) => {
 				const result: any = toCamel(vc);
+				let customerAddress = vc.diachinhan; // Mặc định dùng địa chỉ nhận từ bảng vận chuyển
 				
 				if (vc.mahd) {
 					// Lấy thông tin hóa đơn
@@ -85,12 +86,20 @@ export async function GET(req: Request) {
 									MaKH: kh.makh,
 									TenKH: kh.tenkh,
 									SDT: kh.sdt,
-									DiaChi: kh.diachi,
+									// Không trả về địa chỉ trong thông tin khách hàng nữa
 								};
+								
+								// Ưu tiên dùng địa chỉ từ khách hàng làm địa chỉ nhận
+								if (kh.diachi) {
+									customerAddress = kh.diachi;
+								}
 							}
 						}
 					}
 				}
+				
+				// Cập nhật địa chỉ nhận từ thông tin khách hàng
+				result.DiaChiNhan = customerAddress;
 				
 				return result;
 			})
@@ -105,6 +114,81 @@ export async function GET(req: Request) {
 	}
 }
 
+export async function POST(req: Request) {
+	try {
+		const body = await req.json();
+		const { MaHD, NgayGiao, TrangThai = 'Chờ xử lý' } = body;
+		
+		if (!MaHD) {
+			return NextResponse.json({ error: 'Missing MaHD' }, { status: 400 });
+		}
+		
+		const supabase = getServerSupabase();
+		
+		// 1. Lấy thông tin hóa đơn
+		const { data: hoadon, error: hdError } = await supabase
+			.from('hoadon')
+			.select('*')
+			.eq('mahd', MaHD)
+			.single();
+		
+		if (hdError) throw hdError;
+		if (!hoadon) {
+			return NextResponse.json({ error: 'Hóa đơn không tồn tại' }, { status: 404 });
+		}
+		
+		// 2. Lấy địa chỉ từ khách hàng (nếu có)
+		let diaChiNhan = '';
+		if (hoadon.makh) {
+			const { data: khachhang } = await supabase
+				.from('khachhang')
+				.select('diachi')
+				.eq('makh', hoadon.makh)
+				.single();
+			
+			if (khachhang?.diachi) {
+				diaChiNhan = khachhang.diachi;
+			}
+		}
+		
+		// 3. Tạo mã vận chuyển tự động
+		const { data: lastVC } = await supabase
+			.from('dovi_vanchuyen')
+			.select('mavc')
+			.order('mavc', { ascending: false })
+			.limit(1)
+			.single();
+		
+		let nextMaVC = 'VC001';
+		if (lastVC?.mavc) {
+			const match = lastVC.mavc.match(/VC(\d+)/);
+			if (match) {
+				const num = parseInt(match[1]) + 1;
+				nextMaVC = 'VC' + num.toString().padStart(3, '0');
+			}
+		}
+		
+		// 4. Tạo bản ghi vận chuyển
+		const { data, error } = await supabase
+			.from('dovi_vanchuyen')
+			.insert({
+				mavc: nextMaVC,
+				mahd: MaHD,
+				ngaygiao: NgayGiao || new Date().toISOString().split('T')[0],
+				diachinhan: diaChiNhan,
+				trangthai: TrangThai,
+			})
+			.select()
+			.single();
+		
+		if (error) throw error;
+		
+		return NextResponse.json({ data: toCamel(data) });
+	} catch (e: any) {
+		return NextResponse.json({ error: e.message || 'Server error' }, { status: 500 });
+	}
+}
+
 export async function PUT(req: Request) {
 	try {
 		const { searchParams } = new URL(req.url);
@@ -114,18 +198,23 @@ export async function PUT(req: Request) {
 		}
 		
 		const body = await req.json();
-		const { TrangThai } = body;
+		const { TrangThai, DiaChiNhan } = body;
 		
-		if (!TrangThai) {
-			return NextResponse.json({ error: 'Missing TrangThai' }, { status: 400 });
+		if (!TrangThai && !DiaChiNhan) {
+			return NextResponse.json({ error: 'Missing update data' }, { status: 400 });
 		}
 		
 		const supabase = getServerSupabase();
 		
-		// Cập nhật trạng thái vận chuyển
+		// Xây dựng object update
+		const updateData: any = {};
+		if (TrangThai) updateData.trangthai = TrangThai;
+		if (DiaChiNhan) updateData.diachinhan = DiaChiNhan;
+		
+		// Cập nhật vận chuyển
 		const { data, error } = await supabase
 			.from('dovi_vanchuyen')
-			.update({ trangthai: TrangThai })
+			.update(updateData)
 			.eq('mavc', mavc)
 			.select()
 			.single();
@@ -154,5 +243,3 @@ export async function PUT(req: Request) {
 		return NextResponse.json({ error: e.message || 'Server error' }, { status: 500 });
 	}
 }
-
-

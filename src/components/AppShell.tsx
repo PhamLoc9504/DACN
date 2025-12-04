@@ -65,7 +65,7 @@ export default function AppShell({ children, session }: { children: React.ReactN
   }
 
   return (
-    <div className="flex min-h-screen bg-[#f8f9fe]">
+    <div className="flex min-h-screen bg-[#f4f5fb]">
       <Sidebar session={clientSession ?? session ?? null} />
       <main className="flex-1 flex flex-col min-w-0">
         <header className="sticky top-0 z-30 bg-gradient-to-r from-[#5e72e4] to-[#825ee4] shadow-md">
@@ -122,25 +122,10 @@ export default function AppShell({ children, session }: { children: React.ReactN
             </div>
           </div>
         </header>
-
-        <div className="flex-1 bg-[#f8f9fe] min-w-0">
+        <div className="flex-1 min-w-0">
           <div className="w-full px-4 sm:px-6 lg:px-8 py-6">{children}</div>
         </div>
-
-        <footer className="border-t border-[#f6e5db] bg-gradient-to-r from-[#fff9f6] to-[#fff5f0] py-4 shadow-inner">
-          <div className="w-full px-4 sm:px-6 lg:px-8">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[#9b8376]">
-              <div className="flex flex-wrap items-center gap-4 justify-center">
-                <span> 2023 MindWarehouse Pro — All rights reserved.</span>
-                <span className="hidden sm:inline">|</span>
-              </div>
-              <span className="text-[#b59788]">Powered by <strong>Next.js + Supabase</strong></span>
-            </div>
-          </div>
-        </footer>
       </main>
     </div>
   );
 }
-
-

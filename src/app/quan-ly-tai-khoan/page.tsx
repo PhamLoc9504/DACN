@@ -242,7 +242,7 @@ export default function QuanLyTaiKhoanPage() {
 							<th className="py-3 px-4 font-medium">Vai trò</th>
 							<th className="py-3 px-4 font-medium">Trạng thái</th>
 							<th className="py-3 px-4 font-medium">Ngày tạo</th>
-							<th className="py-3 px-4 font-medium">Thao tác</th>
+							<th className="py-3 px-4 font-medium">Hành động</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -259,7 +259,11 @@ export default function QuanLyTaiKhoanPage() {
 
 						{!loading &&
 							rows.map((r) => (
-								<tr key={r.MaTK} className="border-b border-[#f5ebe0] hover:bg-[#fce7ec]/40 transition">
+								<tr
+									key={r.MaTK}
+									className="border-b border-[#f5ebe0] hover:bg-[#fce7ec]/40 transition cursor-pointer"
+									onClick={() => openModal(r)}
+								>
 									<td className="py-3 px-4 font-medium">{r.MaTK}</td>
 									<td className="py-3 px-4">{r.TenDangNhap}</td>
 									<td className="py-3 px-4 text-gray-600">{r.MaNV || '-'}</td>

@@ -202,7 +202,7 @@ export default function VanChuyenPage() {
 							<th className="py-3 px-4 font-medium">Địa chỉ nhận</th>
 							<th className="py-3 px-4 font-medium">Ngày giao</th>
 							<th className="py-3 px-4 font-medium">Trạng thái</th>
-							<th className="py-3 px-4 font-medium text-center">Thao tác</th>
+							<th className="py-3 px-4 font-medium text-center">Hành động</th>
 						</tr>
 					</thead>
 
@@ -224,7 +224,8 @@ export default function VanChuyenPage() {
 							rows.map((r) => (
 								<tr
 									key={r.MaVC}
-									className="border-b border-[#f5ebe0] hover:bg-[#fce7ec]/40 transition"
+									className="border-b border-[#f5ebe0] hover:bg-[#fce7ec]/40 transition cursor-pointer"
+									onClick={() => openDetail(r)}
 								>
 									<td className="py-3 px-4 font-medium">{r.MaVC}</td>
 									<td className="py-3 px-4">

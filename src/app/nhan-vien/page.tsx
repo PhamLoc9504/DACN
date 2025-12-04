@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import Pagination from '@/components/Pagination';
 import Modal from '@/components/Modal';
 import Button from '@/components/Button';
-import TableActions from '@/components/TableActions';
 import { Edit3, Trash2 } from 'lucide-react';
 
 type Row = {
@@ -24,7 +23,9 @@ export default function NhanVienPage() {
 	const [total, setTotal] = useState(0);
 
 	const [openModal, setOpenModal] = useState(false);
+	const [openDetailModal, setOpenDetailModal] = useState(false);
 	const [editing, setEditing] = useState<Row | null>(null);
+	const [selectedNV, setSelectedNV] = useState<Row | null>(null);
 	const [form, setForm] = useState({ MaNV: '', HoTen: '', NgaySinh: '', ChucVu: '', DienThoai: '' });
 	const [saving, setSaving] = useState(false);
 	const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -39,6 +40,11 @@ export default function NhanVienPage() {
 		setRows(res.data || []);
 		setTotal(res.total || 0);
 		setLoading(false);
+	}
+
+	function openDetail(row: Row) {
+		setSelectedNV(row);
+		setOpenDetailModal(true);
 	}
 
 	useEffect(() => {
@@ -157,7 +163,6 @@ export default function NhanVienPage() {
 							<th className="py-3 px-4 font-medium">Ngày sinh</th>
 							<th className="py-3 px-4 font-medium">Chức vụ</th>
 							<th className="py-3 px-4 font-medium">Điện thoại</th>
-							<th className="py-3 px-4 font-medium">Thao tác</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -174,30 +179,16 @@ export default function NhanVienPage() {
 
 						{!loading &&
 							rows.map((r) => (
-								<tr key={r.MaNV} className="border-b border-[#f5ebe0] hover:bg-[#fce7ec]/40 transition">
+								<tr
+									key={r.MaNV}
+									className="border-b border-[#f5ebe0] hover:bg-[#fce7ec]/40 transition cursor-pointer"
+									onClick={() => openDetail(r)}
+								>
 									<td className="py-3 px-4 font-medium text-gray-700">{r.MaNV}</td>
 									<td className="py-3 px-4">{r.HoTen}</td>
 									<td className="py-3 px-4 text-gray-600">{r.NgaySinh || '-'}</td>
 									<td className="py-3 px-4 text-[#d47b8a] font-semibold">{r.ChucVu || '-'}</td>
 									<td className="py-3 px-4 text-gray-700">{r.DienThoai || '-'}</td>
-									<td className="py-3 px-4">
-										<TableActions
-											actions={[
-												{
-													label: 'Sửa',
-													icon: <Edit3 className="w-3.5 h-3.5" />,
-													onClick: () => openEditModal(r),
-													tone: 'edit',
-												},
-												{
-													label: 'Xóa',
-													icon: <Trash2 className="w-3.5 h-3.5" />,
-													onClick: () => handleDelete(r.MaNV),
-													tone: 'danger',
-												},
-											]}
-										/>
-									</td>
 								</tr>
 							))}
 

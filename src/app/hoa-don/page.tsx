@@ -459,7 +459,19 @@ export default function HoaDonPage() {
 						</Button>
 					</div>
 				</div>
-
+				<div className="mb-4 rounded-xl border border-[#fcd5ce] bg-[#fff5f2] px-4 py-3 text-xs text-[#7b4b3f] flex gap-2">
+					<span className="mt-0.5">
+						<AlertTriangle className="w-4 h-4 text-[#e07a5f]" />
+					</span>
+					<div>
+						<p className="font-semibold">Lưu ý pháp lý khi lập và điều chỉnh hóa đơn</p>
+						<p className="mt-1">
+							Hóa đơn bán hàng và hóa đơn điện tử được hệ thống lưu trữ, khóa/xóa mềm để đáp ứng nghĩa vụ kế toán – thuế của
+							doanh nghiệp theo Luật Kế toán 2015 (LU04) và Luật Thuế GTGT (LU05). Việc lập sai, hủy, điều chỉnh hóa đơn không
+							đúng quy định hoặc cố ý che giấu doanh thu có thể dẫn đến xử phạt theo pháp luật hiện hành.
+						</p>
+					</div>
+				</div>
 				{/* Thống kê */}
 				<div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
 					<div className="rounded-xl border bg-gradient-to-br from-blue-50 to-blue-100 p-4 shadow-sm">
@@ -609,7 +621,7 @@ export default function HoaDonPage() {
                             <th className="py-3 px-4 font-medium">Mã KH</th>
                             <th className="py-3 px-4 font-medium">Tổng tiền</th>
                             <th className="py-3 px-4 font-medium">Trạng thái</th>
-							<th className="py-3 px-4 font-medium text-center">Thao tác</th>
+							<th className="py-3 px-4 font-medium text-center">&nbsp;</th>
                         </tr>
                     </thead>
 
@@ -700,7 +712,7 @@ export default function HoaDonPage() {
 											<div className="relative inline-block">
 												<button
 													className="px-2.5 py-1.5 text-xs bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition font-medium"
-													title="Thao tác khác"
+													title="Tùy chọn khác"
 													onClick={(e) => {
 														e.stopPropagation();
 														setOpenMenuId(openMenuId === r.MaHD ? null : r.MaHD);

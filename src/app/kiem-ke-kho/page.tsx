@@ -373,7 +373,7 @@ export default function KiemKeKhoPage() {
 								<th className="py-3 px-4 font-medium">Người kiểm kê</th>
 								<th className="py-3 px-4 font-medium">Số lượng sản phẩm</th>
 								<th className="py-3 px-4 font-medium">Trạng thái</th>
-								<th className="py-3 px-4 font-medium text-center">Thao tác</th>
+								<th className="py-3 px-4 font-medium text-center">Hành động</th>
 							</tr>
 						</thead>
 						<tbody>

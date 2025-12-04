@@ -205,7 +205,6 @@ export default function KhachHangPage() {
 							<th className="py-3 px-4 font-medium">Tên KH</th>
 							<th className="py-3 px-4 font-medium">Số điện thoại</th>
 							<th className="py-3 px-4 font-medium">Địa chỉ</th>
-							<th className="py-3 px-4 font-medium text-center">Thao tác</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -222,29 +221,15 @@ export default function KhachHangPage() {
 
 						{!loading &&
 							rows.map((r) => (
-								<tr key={r.MaKH} className="border-b border-[#f5ebe0] hover:bg-[#fce7ec]/40 transition">
+								<tr
+									key={r.MaKH}
+									className="border-b border-[#f5ebe0] hover:bg-[#fce7ec]/40 transition cursor-pointer"
+									onClick={() => openDetail(r.MaKH)}
+								>
 									<td className="py-3 px-4 font-medium">{r.MaKH}</td>
 									<td className="py-3 px-4">{r.TenKH}</td>
 									<td className="py-3 px-4 text-gray-700">{r.SDT || '-'}</td>
 									<td className="py-3 px-4 text-gray-700">{r.DiaChi || '-'}</td>
-									<td className="py-3 px-4" onClick={(e) => e.stopPropagation()}>
-										<div className="flex gap-2 justify-center">
-											<button
-												onClick={() => openEdit(r)}
-												className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200 transition"
-											>
-												<Edit className="w-3 h-3 inline mr-1" />
-												Sửa
-											</button>
-											<button
-												onClick={() => handleDelete(r.MaKH)}
-												className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 transition"
-											>
-												<Trash2 className="w-3 h-3 inline mr-1" />
-												Xóa
-											</button>
-										</div>
-									</td>
 								</tr>
 							))}
 
@@ -343,8 +328,23 @@ export default function KhachHangPage() {
 							</div>
 						</div>
 						<div className="flex justify-end gap-2">
-							<Button variant="secondary" onClick={() => setOpenDetailModal(false)}>
-								Đóng
+							<Button
+								variant="secondary"
+								onClick={() => {
+									setOpenDetailModal(false);
+									if (selectedKH) openEdit(selectedKH);
+								}}
+							>
+								Sửa
+							</Button>
+							<Button
+								variant="secondary"
+								onClick={() => {
+									setOpenDetailModal(false);
+									if (selectedKH) handleDelete(selectedKH.MaKH);
+								}}
+							>
+								Xóa
 							</Button>
 						</div>
 					</div>
