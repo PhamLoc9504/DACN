@@ -379,18 +379,20 @@ export default function ChamSocKhachHangPage() {
 	];
 
 	return (
-		<div className="space-y-6 bg-[#f9f5f1] min-h-screen p-6 text-gray-800">
-			<div className="bg-white rounded-2xl p-6 shadow-sm border border-[#f5ebe0]">
+		<div className="space-y-6 bg-slate-100 min-h-screen p-6 text-slate-900">
+			<div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
 				{/* Header */}
 				<div className="flex items-center justify-between mb-6">
-					<h1 className="text-3xl font-bold text-[#d47b8a] flex items-center gap-3">
-						<span className="text-4xl">💎</span>
+					<h1 className="text-3xl font-semibold text-slate-900 flex items-center gap-3 tracking-tight">
+						<span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-500 to-rose-500 shadow-md shadow-purple-500/40">
+							<Users className="w-5 h-5" />
+						</span>
 						<span>Chăm sóc khách hàng</span>
 					</h1>
 				</div>
 
 				{/* Tabs */}
-				<div className="flex gap-2 mb-6 border-b border-[#f5ebe0] overflow-x-auto">
+				<div className="flex gap-2 mb-6 border-b border-gray-200 overflow-x-auto">
 					{tabs.map((tab) => {
 						const Icon = tab.icon;
 						return (
@@ -399,8 +401,8 @@ export default function ChamSocKhachHangPage() {
 								onClick={() => setActiveTab(tab.id)}
 								className={`px-4 py-3 text-sm font-medium transition-all border-b-2 whitespace-nowrap ${
 									activeTab === tab.id
-										? 'border-[#d47b8a] text-[#d47b8a] bg-[#fce7ec]/30'
-										: 'border-transparent text-gray-600 hover:text-[#d47b8a] hover:border-[#d47b8a]/50'
+										? 'border-indigo-500 text-indigo-600 bg-indigo-50'
+										: 'border-transparent text-slate-500 hover:text-slate-900 hover:border-slate-200'
 								}`}
 							>
 								<div className="flex items-center gap-2">
@@ -414,17 +416,17 @@ export default function ChamSocKhachHangPage() {
 
 				{/* Content */}
 				{loading ? (
-					<div className="text-center py-10 text-gray-500">Vui long cho trong giay lat...</div>
+					<div className="text-center py-10 text-slate-500">Vui lòng chờ trong giây lát...</div>
 				) : (
 					<>
 						{/* Tab: Thông tin khách hàng */}
 						{activeTab === 'thong-tin' && (
 							<div className="space-y-6">
-								<div className="flex items-center justify-between">
+								<div className="flex items-center justify-between gap-4 flex-wrap">
 									<div className="flex gap-3 items-center flex-1">
 										<input
 											type="text"
-											className="flex-1 bg-[#fce7ec] border border-[#f9dfe3] rounded-xl px-4 py-2 focus:ring-2 focus:ring-[#d47b8a] outline-none transition"
+											className="flex-1 bg-white border border-gray-300 rounded-xl px-4 py-2 text-sm placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 outline-none transition"
 											placeholder="Tìm kiếm khách hàng..."
 											value={q}
 											onChange={(e) => {
@@ -439,10 +441,10 @@ export default function ChamSocKhachHangPage() {
 									</Button>
 								</div>
 
-								<div className="rounded-xl border bg-white overflow-hidden shadow-sm">
+								<div className="rounded-xl border border-gray-200 bg-white overflow-hidden shadow-sm">
 									<table className="min-w-full text-sm">
 										<thead>
-											<tr className="text-left bg-[#f9f5f1] text-[#b07c83] border-b border-[#f5ebe0]">
+											<tr className="text-left bg-slate-50 text-slate-600 border-b border-gray-200">
 												<th className="py-3 px-4 font-medium">Mã KH</th>
 												<th className="py-3 px-4 font-medium">Tên KH</th>
 												<th className="py-3 px-4 font-medium">Số điện thoại</th>
@@ -454,13 +456,13 @@ export default function ChamSocKhachHangPage() {
 											{khachHangList.map((kh) => (
 												<tr 
 													key={kh.MaKH} 
-													className="border-b border-[#f5ebe0] hover:bg-[#fce7ec]/40 transition cursor-pointer"
+													className="border-b border-gray-200 hover:bg-slate-50 transition cursor-pointer"
 													onClick={() => openDetail(kh.MaKH)}
 												>
 													<td className="py-3 px-4 font-medium">{kh.MaKH}</td>
 													<td className="py-3 px-4">{kh.TenKH}</td>
-													<td className="py-3 px-4 text-gray-700">{kh.SDT || '-'}</td>
-													<td className="py-3 px-4 text-gray-700">{kh.DiaChi || '-'}</td>
+													<td className="py-3 px-4 text-slate-700">{kh.SDT || '-'}</td>
+													<td className="py-3 px-4 text-slate-700">{kh.DiaChi || '-'}</td>
 													<td className="py-3 px-4" onClick={(e) => e.stopPropagation()}>
 														<div className="flex gap-2 justify-center">
 															<button
@@ -483,7 +485,7 @@ export default function ChamSocKhachHangPage() {
 											))}
 											{khachHangList.length === 0 && (
 												<tr>
-													<td colSpan={5} className="py-10 text-center text-gray-500">
+													<td colSpan={5} className="py-10 text-center text-slate-500">
 														Không có dữ liệu
 													</td>
 												</tr>
@@ -509,18 +511,18 @@ export default function ChamSocKhachHangPage() {
 								</div>
 								<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 									{thongBaoList.map((tb) => (
-										<div key={tb.id} className="rounded-xl border bg-white p-4 shadow-sm hover:shadow-md transition">
+										<div key={tb.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm hover:shadow-md transition">
 											<div className="flex items-start justify-between mb-2">
-												<h3 className="font-semibold text-gray-800">{tb.tieuDe}</h3>
+												<h3 className="font-semibold text-slate-900">{tb.tieuDe}</h3>
 												<span
 													className={`px-2 py-1 text-xs rounded ${
-														tb.trangThai === 'da-gui' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+														tb.trangThai === 'da-gui' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
 													}`}
 												>
 													{tb.trangThai === 'da-gui' ? 'Đã gửi' : 'Chưa gửi'}
 												</span>
 											</div>
-											<p className="text-sm text-gray-600 mb-3">{tb.noiDung}</p>
+											<p className="text-sm text-slate-700 mb-3">{tb.noiDung}</p>
 											<div className="flex gap-2">
 												<Button variant="secondary">
 													<Send className="w-3 h-3 mr-1" />
@@ -548,15 +550,15 @@ export default function ChamSocKhachHangPage() {
 								</div>
 								<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 									{khuyenMaiList.map((km) => (
-										<div key={km.id} className="rounded-xl border bg-gradient-to-br from-pink-50 to-rose-100 p-4 shadow-sm hover:shadow-md transition">
+										<div key={km.id} className="rounded-xl border border-purple-200 bg-gradient-to-br from-violet-50 via-fuchsia-50 to-rose-50 p-4 shadow-sm hover:shadow-lg hover:border-purple-300 transition">
 											<div className="flex items-start justify-between mb-2">
-												<h3 className="font-bold text-gray-800">{km.tenKM}</h3>
-												<span className="px-2 py-1 text-xs bg-[#d47b8a] text-white rounded font-semibold">
+												<h3 className="font-bold text-slate-900">{km.tenKM}</h3>
+												<span className="px-2 py-1 text-xs bg-gradient-to-r from-rose-500 to-orange-400 text-white rounded font-semibold shadow-sm">
 													-{km.giamGia}%
 												</span>
 											</div>
-											<p className="text-sm text-gray-600 mb-3">{km.moTa}</p>
-											<div className="text-xs text-gray-500">
+											<p className="text-sm text-slate-700 mb-3">{km.moTa}</p>
+											<div className="text-xs text-slate-500">
 												<p>Từ: {new Date(km.ngayBatDau).toLocaleDateString('vi-VN')}</p>
 												<p>Đến: {new Date(km.ngayKetThuc).toLocaleDateString('vi-VN')}</p>
 											</div>
@@ -570,11 +572,11 @@ export default function ChamSocKhachHangPage() {
 						{activeTab === 'danh-gia' && (
 							<div className="space-y-4">
 								{danhGiaList.map((dg) => (
-									<div key={dg.id} className="rounded-xl border bg-white p-4 shadow-sm">
+									<div key={dg.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
 										<div className="flex items-start justify-between mb-2">
 											<div>
-												<div className="font-semibold text-gray-800">{dg.tenkh}</div>
-												<div className="text-sm text-gray-500">{dg.makh}</div>
+												<div className="font-semibold text-slate-900">{dg.tenkh}</div>
+												<div className="text-sm text-slate-500">{dg.makh}</div>
 											</div>
 											<div className="flex items-center gap-1">
 												{Array.from({ length: 5 }).map((_, i) => (
@@ -585,8 +587,8 @@ export default function ChamSocKhachHangPage() {
 												))}
 											</div>
 										</div>
-										<p className="text-sm text-gray-600">{dg.noiDung}</p>
-										<div className="text-xs text-gray-400 mt-2">
+										<p className="text-sm text-slate-700">{dg.noiDung}</p>
+										<div className="text-xs text-slate-500 mt-2">
 											{new Date(dg.ngayDanhGia).toLocaleDateString('vi-VN')}
 										</div>
 									</div>
@@ -598,18 +600,18 @@ export default function ChamSocKhachHangPage() {
 						{activeTab === 'thong-ke' && (
 							<div className="space-y-6">
 								<div className="flex items-center justify-between mb-4">
-									<h2 className="text-xl font-semibold text-gray-800">Thống kê khách hàng</h2>
+									<h2 className="text-xl font-semibold text-slate-900">Thống kê khách hàng</h2>
 									<div className="flex gap-3 items-center">
 										<input
 											type="date"
-											className="bg-[#fce7ec] border border-[#f9dfe3] rounded-xl px-3 py-2 text-sm"
+											className="bg-white border border-gray-300 rounded-xl px-3 py-2 text-sm text-slate-900"
 											value={fromDate}
 											onChange={(e) => setFromDate(e.target.value)}
 										/>
-										<span className="text-sm text-gray-600">đến</span>
+										<span className="text-sm text-slate-500">đến</span>
 										<input
 											type="date"
-											className="bg-[#fce7ec] border border-[#f9dfe3] rounded-xl px-3 py-2 text-sm"
+											className="bg-white border border-gray-300 rounded-xl px-3 py-2 text-sm text-slate-900"
 											value={toDate}
 											onChange={(e) => setToDate(e.target.value)}
 										/>
@@ -617,78 +619,78 @@ export default function ChamSocKhachHangPage() {
 								</div>
 
 								{statsLoading ? (
-									<div className="text-center py-10 text-gray-500">Đang tải...</div>
+									<div className="text-center py-10 text-slate-500">Đang tải...</div>
 								) : stats ? (
 									<>
 										{/* KPI Cards */}
 										<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-											<div className="rounded-xl border bg-gradient-to-br from-blue-50 to-blue-100 p-4 shadow-sm">
+											<div className="rounded-xl border border-sky-100 bg-gradient-to-br from-sky-50 to-sky-100 p-4 shadow-sm">
 												<div className="flex items-center justify-between">
 													<div>
-														<div className="text-sm text-gray-600">Tổng số khách hàng</div>
-														<div className="text-2xl font-bold text-gray-800 mt-1">{stats.totalCustomers}</div>
+														<div className="text-sm text-slate-600">Tổng số khách hàng</div>
+														<div className="text-2xl font-bold text-slate-900 mt-1">{stats.totalCustomers}</div>
 													</div>
-													<Users className="w-8 h-8 text-blue-600" />
+													<Users className="w-8 h-8 text-sky-500" />
 												</div>
 											</div>
-											<div className="rounded-xl border bg-gradient-to-br from-green-50 to-green-100 p-4 shadow-sm">
+											<div className="rounded-xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-emerald-100 p-4 shadow-sm">
 												<div className="flex items-center justify-between">
 													<div>
-														<div className="text-sm text-gray-600">Khách hàng VIP</div>
-														<div className="text-2xl font-bold text-gray-800 mt-1">{stats.vipCustomers}</div>
+														<div className="text-sm text-slate-600">Khách hàng VIP</div>
+														<div className="text-2xl font-bold text-slate-900 mt-1">{stats.vipCustomers}</div>
 													</div>
-													<Award className="w-8 h-8 text-green-600" />
+													<Award className="w-8 h-8 text-emerald-500" />
 												</div>
 											</div>
-											<div className="rounded-xl border bg-gradient-to-br from-purple-50 to-purple-100 p-4 shadow-sm">
+											<div className="rounded-xl border border-violet-100 bg-gradient-to-br from-violet-50 to-violet-100 p-4 shadow-sm">
 												<div className="flex items-center justify-between">
 													<div>
-														<div className="text-sm text-gray-600">Tổng doanh thu</div>
-														<div className="text-2xl font-bold text-gray-800 mt-1">{stats.totalRevenue.toLocaleString('vi-VN')} ₫</div>
+														<div className="text-sm text-slate-600">Tổng doanh thu</div>
+														<div className="text-2xl font-bold text-slate-900 mt-1">{stats.totalRevenue.toLocaleString('vi-VN')} ₫</div>
 													</div>
-													<TrendingUp className="w-8 h-8 text-purple-600" />
+													<TrendingUp className="w-8 h-8 text-violet-500" />
 												</div>
 											</div>
-											<div className="rounded-xl border bg-gradient-to-br from-orange-50 to-orange-100 p-4 shadow-sm">
+											<div className="rounded-xl border border-amber-100 bg-gradient-to-br from-amber-50 to-amber-100 p-4 shadow-sm">
 												<div className="flex items-center justify-between">
 													<div>
-														<div className="text-sm text-gray-600">Giá trị đơn hàng TB</div>
-														<div className="text-2xl font-bold text-gray-800 mt-1">{stats.averageOrderValue.toLocaleString('vi-VN')} ₫</div>
+														<div className="text-sm text-slate-600">Giá trị đơn hàng TB</div>
+														<div className="text-2xl font-bold text-slate-900 mt-1">{stats.averageOrderValue.toLocaleString('vi-VN')} ₫</div>
 													</div>
-													<Star className="w-8 h-8 text-orange-600" />
+													<Star className="w-8 h-8 text-amber-500" />
 												</div>
 											</div>
 										</div>
 
 										{/* Biểu đồ */}
-										<div className="rounded-xl border bg-white p-4 shadow-sm">
-											<div className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
-												<TrendingUp className="w-5 h-5 text-[#d47b8a]" />
+										<div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+											<div className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
+												<TrendingUp className="w-5 h-5 text-indigo-500" />
 												Doanh thu theo tháng
 											</div>
 											<div className="h-64">
 												<ResponsiveContainer width="100%" height={240}>
 													<LineChart data={stats.byMonth}>
-														<CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-														<XAxis dataKey="month" stroke="#94A3B8" />
-														<YAxis stroke="#94A3B8" tickFormatter={(v) => `${v / 1000000}M`} />
+														<CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+														<XAxis dataKey="month" stroke="#6b7280" />
+														<YAxis stroke="#6b7280" tickFormatter={(v) => `${v / 1000000}M`} />
 														<Tooltip formatter={(value: number) => `${Number(value).toLocaleString('vi-VN')} ₫`} />
-														<Line type="monotone" dataKey="revenue" stroke="#d47b8a" strokeWidth={2} dot={false} />
+														<Line type="monotone" dataKey="revenue" stroke="#6366f1" strokeWidth={2} dot={false} />
 													</LineChart>
 												</ResponsiveContainer>
 											</div>
 										</div>
 
 										{/* Top khách hàng */}
-										<div className="rounded-xl border bg-white p-4 shadow-sm">
-											<div className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
-												<Star className="w-5 h-5 text-[#d47b8a]" />
+										<div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+											<div className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
+												<Star className="w-5 h-5 text-amber-500" />
 												Top 10 khách hàng theo doanh thu
 											</div>
 											<div className="overflow-x-auto">
 												<table className="min-w-full text-sm">
 													<thead>
-														<tr className="text-left bg-gray-50 text-gray-600 border-b">
+														<tr className="text-left bg-slate-50 text-slate-600 border-b border-gray-200">
 															<th className="py-2 px-4 font-medium">STT</th>
 															<th className="py-2 px-4 font-medium">Mã KH</th>
 															<th className="py-2 px-4 font-medium">Tên khách hàng</th>
@@ -698,17 +700,17 @@ export default function ChamSocKhachHangPage() {
 													</thead>
 													<tbody>
 														{stats.topCustomers.map((c: any, i: number) => (
-															<tr key={c.makh} className="border-b hover:bg-gray-50">
+															<tr key={c.makh} className="border-b border-gray-200 hover:bg-slate-50">
 																<td className="py-2 px-4">{i + 1}</td>
 																<td className="py-2 px-4 font-medium">{c.makh}</td>
 																<td className="py-2 px-4">{c.tenkh}</td>
 																<td className="py-2 px-4 text-right">{c.totalOrders}</td>
-																<td className="py-2 px-4 text-right font-medium text-[#d47b8a]">{c.totalRevenue.toLocaleString('vi-VN')} ₫</td>
+																<td className="py-2 px-4 text-right font-medium text-indigo-600">{c.totalRevenue.toLocaleString('vi-VN')} ₫</td>
 															</tr>
 														))}
 														{stats.topCustomers.length === 0 && (
 															<tr>
-																<td colSpan={5} className="py-6 text-center text-gray-500">
+																<td colSpan={5} className="py-6 text-center text-slate-500">
 																	Chưa có dữ liệu
 																</td>
 															</tr>
@@ -719,7 +721,7 @@ export default function ChamSocKhachHangPage() {
 										</div>
 									</>
 								) : (
-									<div className="text-center py-10 text-gray-500">Không có dữ liệu</div>
+									<div className="text-center py-10 text-slate-500">Không có dữ liệu</div>
 								)}
 							</div>
 						)}
@@ -727,11 +729,11 @@ export default function ChamSocKhachHangPage() {
 						{/* Tab: Tìm kiếm */}
 						{activeTab === 'tim-kiem' && (
 							<div className="space-y-6">
-								<div className="rounded-xl border bg-white p-6 shadow-sm">
+								<div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
 									<div className="flex gap-3 mb-4">
 										<input
 											type="text"
-											className="flex-1 bg-[#fce7ec] border border-[#f9dfe3] rounded-xl px-4 py-3 focus:ring-2 focus:ring-[#d47b8a] outline-none transition"
+											className="flex-1 bg-white border border-gray-300 rounded-xl px-4 py-3 text-sm placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 outline-none transition"
 											placeholder="Tìm kiếm khách hàng, hóa đơn, đánh giá..."
 										/>
 										<Button>
@@ -739,8 +741,8 @@ export default function ChamSocKhachHangPage() {
 											Tìm kiếm
 										</Button>
 									</div>
-									<div className="text-center py-10 text-gray-500">
-										<Search className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+									<div className="text-center py-10 text-slate-500">
+										<Search className="w-12 h-12 mx-auto mb-3 text-slate-400" />
 										<p>Nhập từ khóa để tìm kiếm thông tin khách hàng</p>
 									</div>
 								</div>
@@ -750,25 +752,25 @@ export default function ChamSocKhachHangPage() {
 						{/* Tab: Bảo vệ quyền lợi */}
 						{activeTab === 'bao-ve' && (
 							<div className="space-y-6">
-								<div className="rounded-xl border bg-gradient-to-br from-blue-50 to-indigo-100 p-6 shadow-sm">
-									<h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-										<Shield className="w-6 h-6 text-blue-600" />
+								<div className="rounded-xl border border-sky-100 bg-gradient-to-br from-sky-50 via-indigo-50 to-white p-6 shadow-sm">
+									<h2 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
+										<Shield className="w-6 h-6 text-sky-500" />
 										Bảo vệ quyền lợi khách hàng
 									</h2>
-									<div className="space-y-4 text-sm text-gray-700">
-										<div className="bg-white rounded-lg p-4">
+									<div className="space-y-4 text-sm text-slate-700">
+										<div className="bg-white rounded-lg p-4 border border-slate-200">
 											<h3 className="font-semibold mb-2">1. Quyền được thông tin</h3>
 											<p>Khách hàng có quyền được cung cấp đầy đủ thông tin về sản phẩm, dịch vụ.</p>
 										</div>
-										<div className="bg-white rounded-lg p-4">
+										<div className="bg-white rounded-lg p-4 border border-slate-200">
 											<h3 className="font-semibold mb-2">2. Quyền được bảo vệ dữ liệu</h3>
 											<p>Thông tin cá nhân của khách hàng được bảo mật tuyệt đối.</p>
 										</div>
-										<div className="bg-white rounded-lg p-4">
+										<div className="bg-white rounded-lg p-4 border border-slate-200">
 											<h3 className="font-semibold mb-2">3. Quyền khiếu nại</h3>
 											<p>Khách hàng có quyền khiếu nại về chất lượng sản phẩm, dịch vụ.</p>
 										</div>
-										<div className="bg-white rounded-lg p-4">
+										<div className="bg-white rounded-lg p-4 border border-slate-200">
 											<h3 className="font-semibold mb-2">4. Quyền được đền bù</h3>
 											<p>Khách hàng được đền bù nếu sản phẩm, dịch vụ không đúng cam kết.</p>
 										</div>
@@ -791,9 +793,9 @@ export default function ChamSocKhachHangPage() {
 					className="space-y-4"
 				>
 					<div>
-						<label className="block text-sm mb-1 text-gray-500">Mã KH *</label>
+						<label className="block text-sm mb-1 text-slate-700">Mã KH *</label>
 						<input
-							className="w-full bg-[#fce7ec] border border-[#f9dfe3] rounded-xl px-3 py-2 focus:ring-2 focus:ring-[#d47b8a] outline-none transition"
+							className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-sm text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none transition"
 							value={form.MaKH}
 							onChange={(e) => setForm({ ...form, MaKH: e.target.value })}
 							required
@@ -801,26 +803,26 @@ export default function ChamSocKhachHangPage() {
 						/>
 					</div>
 					<div>
-						<label className="block text-sm mb-1 text-gray-500">Tên KH *</label>
+						<label className="block text-sm mb-1 text-slate-700">Tên KH *</label>
 						<input
-							className="w-full bg-[#fce7ec] border border-[#f9dfe3] rounded-xl px-3 py-2 focus:ring-2 focus:ring-[#d47b8a] outline-none transition"
+							className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-sm text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none transition"
 							value={form.TenKH || ''}
 							onChange={(e) => setForm({ ...form, TenKH: e.target.value })}
 							required
 						/>
 					</div>
 					<div>
-						<label className="block text-sm mb-1 text-gray-500">Số điện thoại</label>
+						<label className="block text-sm mb-1 text-slate-700">Số điện thoại</label>
 						<input
-							className="w-full bg-[#fce7ec] border border-[#f9dfe3] rounded-xl px-3 py-2 focus:ring-2 focus:ring-[#d47b8a] outline-none transition"
+							className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-sm text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none transition"
 							value={form.SDT || ''}
 							onChange={(e) => setForm({ ...form, SDT: e.target.value })}
 						/>
 					</div>
 					<div>
-						<label className="block text-sm mb-1 text-gray-500">Địa chỉ</label>
+						<label className="block text-sm mb-1 text-slate-700">Địa chỉ</label>
 						<textarea
-							className="w-full bg-[#fce7ec] border border-[#f9dfe3] rounded-xl px-3 py-2 focus:ring-2 focus:ring-[#d47b8a] outline-none transition"
+							className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-sm text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none transition"
 							value={form.DiaChi || ''}
 							onChange={(e) => setForm({ ...form, DiaChi: e.target.value })}
 							rows={3}
