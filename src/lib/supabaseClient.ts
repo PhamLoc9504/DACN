@@ -1,10 +1,13 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-// Prefer env; fallback to provided public credentials for local dev
-const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://vvfyrmokhzekpxwqdixg.supabase.co') as string;
-const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ2ZnlybW9raHpla3B4d3FkaXhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE4MzYxODgsImV4cCI6MjA3NzQxMjE4OH0.wbIvlNrhKlRmTfM4_mmUJs08jkommFT5Olf_RQVNMIo') as string;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string | undefined;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string | undefined;
 
-export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+if (!supabaseUrl || !supabaseAnonKey) {
+	throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY');
+}
+
+export const supabase: SupabaseClient = createClient(supabaseUrl!, supabaseAnonKey!, {
 	// Manage auth behavior explicitly via auth options
 	auth: {
 		autoRefreshToken: false,
@@ -14,9 +17,11 @@ export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKe
 
 // Server-side helper using service role when available (never import in client components)
 export function getServerSupabase(): SupabaseClient {
-	const fallbackService = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ2ZnlybW9raHpla3B4d3FkaXhnIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MTgzNjE4OCwiZXhwIjoyMDc3NDEyMTg4fQ.u4i_PMRR3S_iDk2bRtSLLQhUmf-zQZtVePksUrx5btA';
-	const serviceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || fallbackService) as string;
-	return createClient(supabaseUrl, serviceKey);
+	const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY as string | undefined;
+	if (!serviceKey) {
+		throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY');
+	}
+	return createClient(supabaseUrl!, serviceKey);
 }
 
 export type Tables = {

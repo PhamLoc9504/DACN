@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import AppShell from "@/components/AppShell";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { getSessionFromCookies } from "@/lib/session";
 
 const geistSans = Geist({
@@ -26,7 +27,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="vi" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-[#f8f9fe] text-[#111827]`}>
-        <AppShell session={session}>{children}</AppShell>
+        <ErrorBoundary>
+          <AppShell session={session}>{children}</AppShell>
+        </ErrorBoundary>
       </body>
     </html>
   );

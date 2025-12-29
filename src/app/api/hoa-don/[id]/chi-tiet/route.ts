@@ -1,13 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/supabaseClient';
-import { getSessionFromCookies } from '@/lib/session';
 
 // GET: Lấy chi tiết hóa đơn từ bảng ct_hoadon
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
 	try {
-		const session = await getSessionFromCookies();
-		if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
 		const { id } = await params;
 		const mahd = id;
 		const supabase = getServerSupabase();

@@ -6,13 +6,19 @@ import { supabase, type Tables } from '@/lib/supabaseClient';
 import Modal from '@/components/Modal';
 import Button from '@/components/Button';
 import { BarcodeScanner } from '@/components/BarcodeScanner';
+import ProductLabel from '@/components/ProductLabel';
+import QRScannerModal from '@/components/QRScannerModal';
+import ErrorDisplay from '@/components/ErrorDisplay';
 import { motion } from 'framer-motion';
+import { hangHoaSchema, validateWithSchema } from '@/lib/validation';
+import { handleApiError, formatErrorForDisplay } from '@/lib/errorHandler';
 import { 
   Search, 
   Filter, 
   Download, 
   Plus, 
   Barcode, 
+  QrCode,
   Package, 
   TrendingUp, 
   AlertTriangle,
@@ -29,7 +35,12 @@ import {
   Building
 } from 'lucide-react';
 
-type HangHoaRow = Tables['HangHoa'] & { Barcode?: string; Quantity?: string };
+type HangHoaRow = Tables['HangHoa'] & { 
+  Barcode?: string; 
+  Quantity?: string; 
+  NgaySanXuat?: string | null; 
+  NgayHetHan?: string | null; 
+};
 
 export default function HangHoaPage() {
   // State quản lý dữ liệu
@@ -37,6 +48,10 @@ export default function HangHoaPage() {
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
   const [loai, setLoai] = useState<string>('');
+  const [nsxFrom, setNsxFrom] = useState('');
+  const [nsxTo, setNsxTo] = useState('');
+  const [expFrom, setExpFrom] = useState('');
+  const [expTo, setExpTo] = useState('');
   const [loaiList, setLoaiList] = useState<Tables['LoaiHang'][]>([]);
   const [nccList, setNccList] = useState<Tables['NhaCC'][]>([]);
   const [page, setPage] = useState(1);
@@ -46,6 +61,12 @@ export default function HangHoaPage() {
   const [mode, setMode] = useState<'create' | 'edit'>('create');
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
   const [selectedItem, setSelectedItem] = useState<HangHoaRow | null>(null);
+  const [error, setError] = useState<ReturnType<typeof formatErrorForDisplay> | null>(null);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+
+  const [openPrintLabel, setOpenPrintLabel] = useState(false);
+  const [printItem, setPrintItem] = useState<HangHoaRow | null>(null);
+  const [openQrSearch, setOpenQrSearch] = useState(false);
 
   // State quản lý form
   const empty: HangHoaRow = {
@@ -58,6 +79,8 @@ export default function HangHoaPage() {
     MaNCC: '',
     Barcode: '',
     Quantity: '',
+    NgaySanXuat: null,
+    NgayHetHan: null,
   };
 
   const [form, setForm] = useState<HangHoaRow>(empty);
@@ -81,6 +104,33 @@ export default function HangHoaPage() {
       }
     } catch (err) {
       console.error('Lỗi khi kiểm tra hàng hóa theo mã vạch:', err);
+    }
+
+    // Fallback: một số mã quét thực tế có thể là MaHH (ví dụ: HH01) thay vì barcode column
+    try {
+      const params = new URLSearchParams();
+      params.set('q', barcode);
+      params.set('page', '1');
+      params.set('limit', '50');
+      const res = await fetch(`/api/hang-hoa?${params.toString()}`);
+      const data = await res.json();
+
+      if (res.ok && Array.isArray(data.data) && data.data.length > 0) {
+        const exact = (data.data as HangHoaRow[]).find(
+          (x) => (x.MaHH || '').toLowerCase() === barcode.toLowerCase() || (x.Barcode || '') === barcode
+        );
+        const item = exact ?? (data.data[0] as HangHoaRow);
+        if (item) {
+          setSelectedItem(item);
+          setForm(item);
+          setMode('edit');
+          setOpen(true);
+          setShowBarcodeScanner(false);
+          return;
+        }
+      }
+    } catch (err) {
+      console.error('Lỗi khi kiểm tra hàng hóa theo mã hàng (fallback):', err);
     }
 
     let nextForm: HangHoaRow = {
@@ -146,6 +196,10 @@ export default function HangHoaPage() {
       if (q) params.set('q', q);
       params.set('page', String(page));
       params.set('limit', String(limit));
+      if (nsxFrom) params.set('nsxFrom', nsxFrom);
+      if (nsxTo) params.set('nsxTo', nsxTo);
+      if (expFrom) params.set('expFrom', expFrom);
+      if (expTo) params.set('expTo', expTo);
 
       try {
         const [hangRes, loaiRes, nccRes] = await Promise.all([
@@ -166,7 +220,7 @@ export default function HangHoaPage() {
     }
 
     load();
-  }, [q, page, limit]);
+  }, [q, page, limit, nsxFrom, nsxTo, expFrom, expTo]);
 
   const LOW_THRESHOLD = 5;
 
@@ -192,12 +246,20 @@ export default function HangHoaPage() {
     if (q) params.set('q', q);
     params.set('page', '1');
     params.set('limit', String(limit));
+    if (nsxFrom) params.set('nsxFrom', nsxFrom);
+    if (nsxTo) params.set('nsxTo', nsxTo);
+    if (expFrom) params.set('expFrom', expFrom);
+    if (expTo) params.set('expTo', expTo);
+
     const res = await fetch(`/api/hang-hoa?${params.toString()}`).then((r) => r.json());
     setRows((res.data || []) as HangHoaRow[]);
     setTotal(res.total || 0);
   }
 
   async function handleCreate() {
+    setError(null);
+    setValidationErrors({});
+
     let maHH = form.MaHH?.trim();
     if (!maHH) {
       maHH = await generateNextMaHH();
@@ -205,33 +267,77 @@ export default function HangHoaPage() {
 
     const payload = { ...form, MaHH: maHH };
 
-    const res = await fetch('/api/hang-hoa', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      alert(data.error || 'Lưu hàng hóa thất bại. Vui lòng kiểm tra lại các trường bắt buộc.');
+    // Validate với Zod schema
+    const validation = validateWithSchema(hangHoaSchema, payload);
+    if (!validation.success) {
+      setValidationErrors(validation.errors);
+      const firstError = Object.values(validation.errors)[0];
+      setError(formatErrorForDisplay(firstError || 'Dữ liệu không hợp lệ'));
       return;
     }
-    setOpen(false);
-    await refresh();
+
+    try {
+      const res = await fetch('/api/hang-hoa', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(validation.data),
+      });
+      const data = await res.json().catch(() => ({}));
+      
+      if (!res.ok) {
+        const appError = handleApiError(data);
+        setError(formatErrorForDisplay(appError));
+        if (data.errors) {
+          setValidationErrors(data.errors);
+        }
+        return;
+      }
+      
+      setOpen(false);
+      setForm(empty);
+      await refresh();
+    } catch (err) {
+      const appError = handleApiError(err);
+      setError(formatErrorForDisplay(appError));
+    }
   }
 
   async function handleUpdate() {
-    const res = await fetch('/api/hang-hoa', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      alert(data.error || 'Cập nhật hàng hóa thất bại. Vui lòng kiểm tra lại các trường bắt buộc.');
+    setError(null);
+    setValidationErrors({});
+
+    // Validate với Zod schema
+    const validation = validateWithSchema(hangHoaSchema, form);
+    if (!validation.success) {
+      setValidationErrors(validation.errors);
+      const firstError = Object.values(validation.errors)[0];
+      setError(formatErrorForDisplay(firstError || 'Dữ liệu không hợp lệ'));
       return;
     }
-    setOpen(false);
-    await refresh();
+
+    try {
+      const res = await fetch('/api/hang-hoa', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(validation.data),
+      });
+      const data = await res.json().catch(() => ({}));
+      
+      if (!res.ok) {
+        const appError = handleApiError(data);
+        setError(formatErrorForDisplay(appError));
+        if (data.errors) {
+          setValidationErrors(data.errors);
+        }
+        return;
+      }
+      
+      setOpen(false);
+      await refresh();
+    } catch (err) {
+      const appError = handleApiError(err);
+      setError(formatErrorForDisplay(appError));
+    }
   }
 
   async function exportCSV() {
@@ -239,6 +345,11 @@ export default function HangHoaPage() {
     if (q) params.set('q', q);
     params.set('page', '1');
     params.set('limit', '10000');
+    if (nsxFrom) params.set('nsxFrom', nsxFrom);
+    if (nsxTo) params.set('nsxTo', nsxTo);
+    if (expFrom) params.set('expFrom', expFrom);
+    if (expTo) params.set('expTo', expTo);
+
     const res = await fetch(`/api/hang-hoa?${params.toString()}`).then((r) => r.json());
     const data: Tables['HangHoa'][] = res.data || [];
     const headers = ['MaHH','TenHH','MaLoai','DonGia','SoLuongTon','DVT','MaNCC'];
@@ -282,17 +393,26 @@ export default function HangHoaPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-6">
+    <div className="min-h-screen bg-slate-100 p-4 md:p-6 text-slate-900">
       <div className="max-w-7xl mx-auto">
         {/* Header Section */}
         <div className="mb-6">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Quản lý Hàng hóa</h1>
-              <p className="text-gray-600 mt-1">Tổng quan và quản lý toàn bộ hàng hóa trong kho</p>
+              <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Quản lý Hàng hóa</h1>
+              <p className="text-slate-500 mt-1">Tổng quan và quản lý toàn bộ hàng hóa trong kho</p>
             </div>
             
             <div className="flex items-center gap-3">
+              <Button
+                variant="secondary"
+                onClick={() => setOpenQrSearch(true)}
+                className="flex items-center gap-2"
+              >
+                <QrCode className="w-4 h-4" />
+                Quét để tìm
+              </Button>
+              
               <Button
                 variant="secondary"
                 onClick={() => setShowBarcodeScanner(true)}
@@ -324,8 +444,8 @@ export default function HangHoaPage() {
           <div className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-sm transition-shadow cursor-pointer" onClick={() => handleRowClick(rows[0] || empty)}>
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500 mb-1">Tổng mặt hàng</p>
-                <p className="text-2xl font-bold text-gray-900">{rows.length}</p>
+                <p className="text-sm text-slate-500 mb-1">Tổng mặt hàng</p>
+                <p className="text-2xl font-bold text-slate-900">{rows.length}</p>
               </div>
               <div className="p-2 bg-blue-50 rounded-lg">
                 <Package className="w-5 h-5 text-blue-600" />
@@ -374,52 +494,100 @@ export default function HangHoaPage() {
 
         {/* Filters and Search Bar */}
         <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                  placeholder="Tìm kiếm theo mã, tên hàng..."
-                  value={q}
-                  onChange={(e) => { setQ(e.target.value); setPage(1); }}
-                />
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
+                  <input
+                    className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                    placeholder="Tìm kiếm theo mã, tên hàng..."
+                    value={q}
+                    onChange={(e) => { setQ(e.target.value); setPage(1); }}
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="secondary"
+                  onClick={() => setOpenQrSearch(true)}
+                  className="flex items-center gap-2"
+                >
+                  <QrCode className="w-4 h-4" />
+                  Quét để tìm
+                </Button>
+
+                <div className="flex items-center gap-2">
+                  <Filter className="w-4 h-4 text-gray-500" />
+                  <select
+                    className="border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                    value={loai}
+                    onChange={(e) => { setLoai(e.target.value); setPage(1); }}
+                  >
+                    <option value="">Tất cả loại hàng</option>
+                    {loaiList.map((l) => (
+                      <option key={l.MaLoai} value={l.MaLoai}>{l.TenLoai}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <Button
+                  variant="secondary"
+                  onClick={exportCSV}
+                  className="flex items-center gap-2"
+                >
+                  <Download className="w-4 h-4" />
+                  Xuất CSV
+                </Button>
+
+                <select
+                  className="border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                  value={limit}
+                  onChange={(e) => { setLimit(parseInt(e.target.value)); setPage(1); }}
+                >
+                  <option value={10}>10 / trang</option>
+                  <option value={20}>20 / trang</option>
+                  <option value={50}>50 / trang</option>
+                </select>
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
+            {/* Bộ lọc ngày SX / Hết hạn */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
               <div className="flex items-center gap-2">
-                <Filter className="w-4 h-4 text-gray-500" />
-                <select
-                  className="border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                  value={loai}
-                  onChange={(e) => { setLoai(e.target.value); setPage(1); }}
-                >
-                  <option value="">Tất cả loại hàng</option>
-                  {loaiList.map((l) => (
-                    <option key={l.MaLoai} value={l.MaLoai}>{l.TenLoai}</option>
-                  ))}
-                </select>
+                <span className="text-slate-600 whitespace-nowrap">Ngày sản xuất</span>
+                <input
+                  type="date"
+                  className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                  value={nsxFrom}
+                  onChange={(e) => { setNsxFrom(e.target.value); setPage(1); }}
+                />
+                <span className="text-slate-500">-</span>
+                <input
+                  type="date"
+                  className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                  value={nsxTo}
+                  onChange={(e) => { setNsxTo(e.target.value); setPage(1); }}
+                />
               </div>
 
-              <Button
-                variant="secondary"
-                onClick={exportCSV}
-                className="flex items-center gap-2"
-              >
-                <Download className="w-4 h-4" />
-                Xuất CSV
-              </Button>
-
-              <select
-                className="border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                value={limit}
-                onChange={(e) => { setLimit(parseInt(e.target.value)); setPage(1); }}
-              >
-                <option value={10}>10 / trang</option>
-                <option value={20}>20 / trang</option>
-                <option value={50}>50 / trang</option>
-              </select>
+              <div className="flex items-center gap-2">
+                <span className="text-slate-600 whitespace-nowrap">Ngày hết hạn</span>
+                <input
+                  type="date"
+                  className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                  value={expFrom}
+                  onChange={(e) => { setExpFrom(e.target.value); setPage(1); }}
+                />
+                <span className="text-slate-500">-</span>
+                <input
+                  type="date"
+                  className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                  value={expTo}
+                  onChange={(e) => { setExpTo(e.target.value); setPage(1); }}
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -437,7 +605,7 @@ export default function HangHoaPage() {
                       Có {lowStock.length} mặt hàng có tồn kho ≤ {LOW_THRESHOLD}
                     </p>
                   </div>
-                  <span className="px-3 py-1 bg-amber-100 text-amber-800 text-sm font-medium rounded-full flex items-center gap-1">
+                  <span className="px-3 py-1 bg-amber-100 text-amber-800 text-xs font-medium rounded-full flex items-center gap-1">
                     <AlertTriangle className="w-4 h-4" />
                     {lowStock.length} sản phẩm
                   </span>
@@ -472,6 +640,9 @@ export default function HangHoaPage() {
                     Trạng thái
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    Hành động
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                     Chi tiết
                   </th>
                 </tr>
@@ -488,11 +659,12 @@ export default function HangHoaPage() {
                       <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-16"></div></td>
                       <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-20"></div></td>
                       <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-12"></div></td>
+                      <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-12"></div></td>
                     </tr>
                   ))
                 ) : filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-6 py-12 text-center">
+                    <td colSpan={8} className="px-6 py-12 text-center">
                       <div className="inline-flex flex-col items-center gap-3">
                         <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
                           <Package className="w-6 h-6 text-gray-400" />
@@ -513,8 +685,8 @@ export default function HangHoaPage() {
                     >
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
-                          <div className="font-mono font-semibold text-gray-900 flex items-center gap-2">
-                            <Hash className="w-4 h-4 text-gray-400" />
+                          <div className="font-mono font-semibold text-slate-900 flex items-center gap-2">
+                            <Hash className="w-4 h-4 text-slate-400" />
                             {item.MaHH}
                           </div>
                           {item.Barcode && (
@@ -529,8 +701,8 @@ export default function HangHoaPage() {
                             <Package className="w-4 h-4 text-blue-600" />
                           </div>
                           <div className="flex-1">
-                            <div className="font-medium text-gray-900">{item.TenHH}</div>
-                            <div className="text-xs text-gray-500 mt-1 truncate max-w-xs">
+                            <div className="font-medium text-slate-900">{item.TenHH}</div>
+                            <div className="text-xs text-slate-500 mt-1 truncate max-w-xs">
                               {item.Quantity || 'Không có mô tả'}
                             </div>
                           </div>
@@ -539,15 +711,15 @@ export default function HangHoaPage() {
                       
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
-                          <Tag className="w-4 h-4 text-gray-400" />
-                          <span className="text-gray-700">{item.MaLoai}</span>
+                          <Tag className="w-4 h-4 text-slate-400" />
+                          <span className="text-slate-700">{item.MaLoai}</span>
                         </div>
                       </td>
                       
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
-                          <DollarSign className="w-4 h-4 text-gray-400" />
-                          <span className="font-semibold text-gray-900">
+                          <DollarSign className="w-4 h-4 text-slate-400" />
+                          <span className="font-semibold text-slate-900">
                             {(item.DonGia || 0).toLocaleString('vi-VN')} ₫
                           </span>
                         </div>
@@ -555,7 +727,7 @@ export default function HangHoaPage() {
                       
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
-                          <Box className="w-4 h-4 text-gray-400" />
+                          <Box className="w-4 h-4 text-slate-400" />
                           <span className={`font-semibold ${
                             (item.SoLuongTon || 0) <= LOW_THRESHOLD 
                               ? 'text-red-600' 
@@ -568,16 +740,30 @@ export default function HangHoaPage() {
                       
                       <td className="px-6 py-4">
                         {(item.SoLuongTon || 0) <= LOW_THRESHOLD ? (
-                          <div className="inline-flex items-center gap-1 px-2 py-1 bg-red-100 text-red-800 text-xs font-medium rounded">
+                          <div className="inline-flex items-center gap-1 px-2 py-1 bg-red-100 text-red-800 text-xs font-medium rounded-full">
                             <XCircle className="w-3 h-3" />
                             <span>Sắp hết</span>
                           </div>
                         ) : (
-                          <div className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded">
+                          <div className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">
                             <CheckCircle className="w-3 h-3" />
                             <span>Đủ hàng</span>
                           </div>
                         )}
+                      </td>
+                      
+                      <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center gap-2">
+                          <button
+                            className="px-3 py-1.5 rounded-md border bg-white text-slate-700 hover:bg-slate-50 text-sm"
+                            onClick={() => {
+                              setPrintItem(item);
+                              setOpenPrintLabel(true);
+                            }}
+                          >
+                            In tem
+                          </button>
+                        </div>
                       </td>
                       
                       <td className="px-6 py-4">
@@ -613,10 +799,22 @@ export default function HangHoaPage() {
       {/* Product Detail Modal */}
       <Modal
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={() => {
+          setOpen(false);
+          setError(null);
+          setValidationErrors({});
+          setForm(empty);
+        }}
         title={mode === 'create' ? 'Thêm hàng hóa mới' : 'Chi tiết hàng hóa'}
       >
         <div className="space-y-6">
+          {/* Error Display */}
+          {error && (
+            <ErrorDisplay
+              error={error}
+              onDismiss={() => setError(null)}
+            />
+          )}
           {/* Product Header Info */}
           <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
             <div className="flex items-start justify-between">
@@ -676,12 +874,24 @@ export default function HangHoaPage() {
               </label>
               <input
                 type="text"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none disabled:bg-gray-100 disabled:cursor-not-allowed ${
+                  validationErrors.TenHH ? 'border-red-300' : 'border-gray-300'
+                }`}
                 value={form.TenHH || ''}
-                onChange={(e) => setForm({ ...form, TenHH: e.target.value })}
+                onChange={(e) => {
+                  setForm({ ...form, TenHH: e.target.value });
+                  if (validationErrors.TenHH) {
+                    const newErrors = { ...validationErrors };
+                    delete newErrors.TenHH;
+                    setValidationErrors(newErrors);
+                  }
+                }}
                 disabled={mode === 'edit'}
                 required
               />
+              {validationErrors.TenHH && (
+                <p className="mt-1 text-sm text-red-600">{validationErrors.TenHH}</p>
+              )}
             </div>
 
             <div>
@@ -785,6 +995,32 @@ export default function HangHoaPage() {
                 <option value="Hộp">Hộp</option>
               </select>
             </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Ngày sản xuất
+              </label>
+              <input
+                type="date"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
+                value={form.NgaySanXuat || ''}
+                onChange={(e) => setForm({ ...form, NgaySanXuat: e.target.value || null })}
+                disabled={mode === 'edit'}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Ngày hết hạn
+              </label>
+              <input
+                type="date"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
+                value={form.NgayHetHan || ''}
+                onChange={(e) => setForm({ ...form, NgayHetHan: e.target.value || null })}
+                disabled={mode === 'edit'}
+              />
+            </div>
           </div>
 
           {/* Quick Stats */}
@@ -844,6 +1080,51 @@ export default function HangHoaPage() {
           </div>
         </div>
       </Modal>
+
+      <Modal
+        open={openPrintLabel}
+        onClose={() => {
+          setOpenPrintLabel(false);
+          setPrintItem(null);
+        }}
+        title="In tem sản phẩm"
+        className="max-w-3xl"
+        hideFooter
+      >
+        <div className="space-y-4">
+          {printItem && (
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <ProductLabel productName={printItem.TenHH || ''} productCode={printItem.MaHH} />
+              <div className="flex flex-col gap-2">
+                <button
+                  className="px-4 py-2 rounded-md bg-slate-900 text-white hover:bg-slate-800"
+                  onClick={() => window.print()}
+                >
+                  In (Ctrl+P)
+                </button>
+                <button
+                  className="px-4 py-2 rounded-md border bg-white text-slate-700 hover:bg-slate-50"
+                  onClick={() => {
+                    setOpenPrintLabel(false);
+                    setPrintItem(null);
+                  }}
+                >
+                  Đóng
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </Modal>
+
+      <QRScannerModal
+        open={openQrSearch}
+        onClose={() => setOpenQrSearch(false)}
+        onScanSuccess={(decodedText) => {
+          setQ(decodedText);
+          setPage(1);
+        }}
+      />
 
       {/* Barcode Scanner Modal */}
       {showBarcodeScanner && (

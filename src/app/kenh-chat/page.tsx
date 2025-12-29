@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabaseClient';
 
 type ChatMessage = {
   id: string | number;
@@ -129,56 +128,46 @@ export default function StaffChatPage() {
     })();
   }, [activeStaffId]);
 
-  // Realtime: lắng nghe tin nhắn mới trên bảng staff_messages cho cuộc hội thoại hiện tại
+  // Polling: tải lại tin nhắn định kỳ (tránh phụ thuộc realtime client-side vì sẽ bị chặn khi bật RLS)
   useEffect(() => {
-    if (!currentUserId || !activeStaffId) return;
+    if (!activeStaffId) return;
+    let cancelled = false;
 
-    const channel = supabase
-      .channel('staff-messages')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'staff_messages' },
-        async (payload) => {
-          const m: any = payload.new;
-          if (!m) return;
+    async function refresh() {
+      try {
+        const res = await fetch(`/api/chat/messages?staffId=${encodeURIComponent(activeStaffId)}`);
+        const data = await res.json();
+        if (!res.ok) return;
+        if (cancelled) return;
 
-          const inCurrentThread =
-            (m.sender_id === currentUserId && m.receiver_id === activeStaffId) ||
-            (m.sender_id === activeStaffId && m.receiver_id === currentUserId);
-          if (!inCurrentThread) return;
+        const nowUserId: string = data.currentUserId;
+        setCurrentUserId(nowUserId);
+        const list: ChatMessage[] = (data.messages || []).map((m: any) => {
+          const created = m.created_at ? new Date(m.created_at) : new Date();
+          const time = `${created.getHours().toString().padStart(2, '0')}:${created
+            .getMinutes()
+            .toString()
+            .padStart(2, '0')}`;
+          return {
+            id: m.id,
+            author: m.sender_id === nowUserId ? 'me' : 'other',
+            text: m.text,
+            time,
+          };
+        });
+        setMessages(list);
+      } catch (e) {
+        console.error(e);
+      }
+    }
 
-          // Lấy lại toàn bộ messages đã được giải mã từ server để đảm bảo không lộ bản mã hoá trên client
-          try {
-            const res = await fetch(`/api/chat/messages?staffId=${encodeURIComponent(activeStaffId)}`);
-            const data = await res.json();
-            if (!res.ok) return;
-            const nowUserId: string = data.currentUserId;
-            setCurrentUserId(nowUserId);
-            const list: ChatMessage[] = (data.messages || []).map((msg: any) => {
-              const created = msg.created_at ? new Date(msg.created_at) : new Date();
-              const time = `${created.getHours().toString().padStart(2, '0')}:${created
-                .getMinutes()
-                .toString()
-                .padStart(2, '0')}`;
-              return {
-                id: msg.id,
-                author: msg.sender_id === nowUserId ? 'me' : 'other',
-                text: msg.text,
-                time,
-              };
-            });
-            setMessages(list);
-          } catch (e) {
-            console.error(e);
-          }
-        }
-      )
-      .subscribe();
-
+    refresh();
+    const timer = window.setInterval(refresh, 4000);
     return () => {
-      supabase.removeChannel(channel);
+      cancelled = true;
+      window.clearInterval(timer);
     };
-  }, [currentUserId, activeStaffId]);
+  }, [activeStaffId]);
 
   async function handleSend() {
     const value = input.trim();

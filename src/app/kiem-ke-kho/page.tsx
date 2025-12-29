@@ -273,7 +273,7 @@ export default function KiemKeKhoPage() {
 		: 0;
 
 	return (
-		<div className="space-y-6 bg-[#f9f5f1] min-h-screen p-6 text-gray-800">
+		<div className="space-y-6 bg-slate-100 min-h-screen p-6 text-slate-900">
 			{/* KPI Cards */}
 			<div className="grid grid-cols-1 md:grid-cols-4 gap-4">
 				<div className="bg-gradient-to-br from-pink-500 to-rose-500 text-white rounded-2xl p-4 shadow-md flex items-center justify-between">
@@ -317,11 +317,13 @@ export default function KiemKeKhoPage() {
 				</div>
 			</div>
 
-			<div className="bg-white rounded-2xl p-6 shadow-sm border border-[#f5ebe0]">
+			<div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
 				{/* Header */}
 				<div className="flex items-center justify-between mb-6">
-					<h1 className="text-2xl font-semibold text-[#d47b8a] flex items-center gap-3">
-						<ClipboardCheck className="w-6 h-6" />
+					<h1 className="text-2xl font-semibold text-slate-900 flex items-center gap-3 tracking-tight">
+						<span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 via-sky-500 to-emerald-500 shadow-md shadow-sky-500/40">
+							<ClipboardCheck className="w-5 h-5" />
+						</span>
 						Quản lý kiểm kê kho
 					</h1>
 					<Button onClick={openCreate}>
@@ -333,10 +335,10 @@ export default function KiemKeKhoPage() {
 				{/* Filters */}
 				<div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
 					<div className="md:col-span-2">
-						<label className="block text-sm mb-1 text-gray-500">Tìm kiếm</label>
+						<label className="block text-sm mb-1 text-slate-600">Tìm kiếm</label>
 						<input
 							type="text"
-							className="w-full bg-[#fce7ec] border border-[#f9dfe3] rounded-xl px-3 py-2 focus:ring-2 focus:ring-[#d47b8a] outline-none transition placeholder:text-gray-400"
+							className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-sm text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none transition placeholder:text-slate-400"
 							placeholder="Mã kiểm kê, người kiểm kê..."
 							value={q}
 							onChange={(e) => {
@@ -346,9 +348,9 @@ export default function KiemKeKhoPage() {
 						/>
 					</div>
 					<div>
-						<label className="block text-sm mb-1 text-gray-500">Trạng thái</label>
+						<label className="block text-sm mb-1 text-slate-600">Trạng thái</label>
 						<select
-							className="w-full bg-[#fce7ec] border border-[#f9dfe3] rounded-xl px-3 py-2 text-gray-800 focus:ring-2 focus:ring-[#d47b8a] outline-none transition"
+							className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-sm text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none transition"
 							value={trangThai}
 							onChange={(e) => {
 								setPage(1);
@@ -364,10 +366,10 @@ export default function KiemKeKhoPage() {
 				</div>
 
 				{/* Table */}
-				<div className="rounded-xl border bg-white overflow-hidden shadow-sm">
+				<div className="rounded-xl border border-gray-200 bg-white overflow-hidden shadow-sm">
 					<table className="min-w-full text-sm">
 						<thead>
-							<tr className="text-left bg-[#f9f5f1] text-[#b07c83] border-b border-[#f5ebe0]">
+							<tr className="text-left bg-slate-50 text-slate-600 border-b border-gray-200">
 								<th className="py-3 px-4 font-medium">Mã KK</th>
 								<th className="py-3 px-4 font-medium">Ngày kiểm kê</th>
 								<th className="py-3 px-4 font-medium">Người kiểm kê</th>
@@ -379,10 +381,10 @@ export default function KiemKeKhoPage() {
 						<tbody>
 							{loading &&
 								Array.from({ length: 5 }).map((_, i) => (
-									<tr key={i} className="border-b border-[#f5ebe0] animate-pulse">
+									<tr key={i} className="border-b border-gray-200 animate-pulse">
 										{Array.from({ length: 6 }).map((_, j) => (
 											<td key={j} className="py-3 px-4">
-												<div className="h-4 w-20 bg-[#f9dfe3] rounded" />
+												<div className="h-4 w-20 bg-slate-200 rounded" />
 											</td>
 										))}
 									</tr>
@@ -392,13 +394,13 @@ export default function KiemKeKhoPage() {
 								filtered.map((kk) => (
 									<tr 
 										key={kk.id} 
-										className="border-b border-[#f5ebe0] hover:bg-[#fce7ec]/40 transition cursor-pointer"
+										className="border-b border-gray-200 hover:bg-slate-50 transition cursor-pointer"
 										onClick={() => openDetail(kk)}
 									>
 										<td className="py-3 px-4 font-medium">{kk.maKK}</td>
-										<td className="py-3 px-4">{formatVietnamDate(kk.ngayKiemKe)}</td>
-										<td className="py-3 px-4">{kk.nguoiKiemKe}</td>
-										<td className="py-3 px-4">{kk.chiTiet?.length || 0}</td>
+										<td className="py-3 px-4 text-slate-700">{formatVietnamDate(kk.ngayKiemKe)}</td>
+										<td className="py-3 px-4 text-slate-700">{kk.nguoiKiemKe}</td>
+										<td className="py-3 px-4 text-slate-700">{kk.chiTiet?.length || 0}</td>
 										<td className="py-3 px-4">
 											<span className={`px-2 py-1 text-xs rounded font-medium ${getTrangThaiColor(kk.trangThai)}`}>
 												{getTrangThaiLabel(kk.trangThai)}
@@ -429,8 +431,8 @@ export default function KiemKeKhoPage() {
 
 							{!loading && filtered.length === 0 && (
 								<tr>
-									<td colSpan={6} className="py-10 text-center text-gray-500 bg-white">
-										<div className="mx-auto h-10 w-10 rounded-full bg-[#fce7ec] mb-3" />
+									<td colSpan={6} className="py-10 text-center text-slate-500 bg-white">
+										<div className="mx-auto h-10 w-10 rounded-full bg-slate-200 mb-3" />
 										Không có dữ liệu
 									</td>
 								</tr>

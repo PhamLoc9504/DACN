@@ -155,6 +155,84 @@ export async function POST(req: Request) {
 			}
 		}
 
+		// ==============================
+		// TẠO HÓA ĐƠN MUA HÀNG TƯƠNG ỨNG
+		// ==============================
+		// Tính tổng tiền phiếu nhập từ danh sách chi tiết đã nhận
+		const tongTienPhieu = (chitiet || []).reduce((sum: number, row: any) => {
+			const qty = Number(row.SLNhap || 0);
+			const price = Number(row.DGNhap || 0);
+			return sum + qty * price;
+		}, 0);
+
+		// Tự sinh mã hóa đơn nếu cần (HD0001, HD0002, ...)
+		let maHD: string | undefined = (phieu as any)?.MaHD;
+		if (!maHD) {
+			const { data: lastHD } = await supabase
+				.from('hoadon')
+				.select('mahd')
+				.ilike('mahd', 'HD%')
+				.order('mahd', { ascending: false })
+				.limit(1)
+				.maybeSingle();
+
+			let nextNum = 1;
+			if (lastHD?.mahd) {
+				const match = (lastHD.mahd as string).match(/HD(\d+)/i);
+				if (match) {
+					nextNum = parseInt(match[1], 10) + 1;
+				}
+			}
+
+			maHD = 'HD' + String(nextNum).padStart(4, '0');
+		}
+
+		// Chèn bản ghi hóa đơn mua hàng
+		const { data: newHoaDon, error: errHD } = await supabase
+			.from('hoadon')
+			.insert([
+				{
+					mahd: maHD,
+					ngaylap: phieu.NgayNhap ?? new Date().toISOString(),
+					makh: null, // Phiếu nhập thường không gắn KH
+					tongtien: tongTienPhieu,
+					trangthai: 'Chưa thanh toán',
+					sopn: soPN,
+					manv: maNV,
+					hinhthucgiao: 'Tại quầy',
+					phuongthuctt: 'Tiền mặt',
+					loaihd: 'MUA_HANG',
+				},
+			])
+			.select()
+			.single();
+
+		if (errHD) {
+			// Rollback tất cả nếu tạo hóa đơn lỗi
+			await supabase.from('ctphieunhap').delete().eq('sopn', soPN);
+			await supabase.from('phieunhap').delete().eq('sopn', soPN);
+			throw errHD;
+		}
+
+		// Tạo chi tiết hóa đơn từ chi tiết phiếu nhập
+		const ctHoaDonRows = (chitiet || []).map((row: any) => ({
+			mahd: maHD,
+			mahh: row.MaHH,
+			soluong: row.SLNhap,
+			dongia: row.DGNhap,
+			tongtien: (row.SLNhap || 0) * (row.DGNhap || 0),
+		}));
+
+		const { error: errCTHD } = await supabase.from('ct_hoadon').insert(ctHoaDonRows);
+		if (errCTHD) {
+			// Rollback phiếu nhập + hóa đơn nếu lưu chi tiết hóa đơn lỗi
+			await supabase.from('ct_hoadon').delete().eq('mahd', maHD);
+			await supabase.from('ctphieunhap').delete().eq('sopn', soPN);
+			await supabase.from('phieunhap').delete().eq('sopn', soPN);
+			await supabase.from('hoadon').delete().eq('mahd', maHD);
+			throw errCTHD;
+		}
+
 		// Ghi log
 		await logCRUD('TAO', 'phieunhap', soPN, null, newPhieu);
 

@@ -10,6 +10,19 @@ function toCamel(row: any) {
 	};
 }
 
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+	try {
+		const { id } = await params;
+		const supabase = getServerSupabase();
+		const { data, error } = await supabase.from('nhacc').select('*').eq('mancc', id).maybeSingle();
+		if (error) throw error;
+		if (!data) return NextResponse.json({ error: 'Nhà cung cấp không tồn tại' }, { status: 404 });
+		return NextResponse.json({ data: toCamel(data) });
+	} catch (e: any) {
+		return NextResponse.json({ error: e.message || 'Server error' }, { status: 500 });
+	}
+}
+
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
 	try {
 		const { id } = await params;

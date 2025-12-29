@@ -65,7 +65,7 @@ const SECTIONS = [
       {
         ma: "LU03",
         ten: "Luật Thương mại 2005 – hợp đồng mua bán hàng hóa, cung ứng dịch vụ.",
-        link: "https://vanban.chinhphu.vn/default.aspx?pageid=27160&docid=14765",
+        link: "https://view.officeapps.live.com/op/view.aspx?src=https%3A%2F%2Ffiles.thuvienphapluat.vn%2Fuploads%2FFileLargeTemp%2F2005%2F6%2F14%2F36_2005_QH11_2633.doc%3Fvv%3D115500&wdOrigin=BROWSELINK",
       },
     ],
   },

@@ -13,6 +13,23 @@ export async function POST(req: Request) {
 
 		const supabase = getServerSupabase();
 
+		// Tự động lấy MaNV từ tài khoản đăng nhập hiện tại
+		const { data: taiKhoan, error: tkError } = await supabase
+			.from('taikhoan')
+			.select('manv')
+			.eq('matk', session.maTk)
+			.maybeSingle();
+
+		if (tkError) {
+			throw tkError;
+		}
+
+		if (!taiKhoan?.manv) {
+			return NextResponse.json({ error: 'Tài khoản hiện tại chưa được gán cho nhân viên (MaNV)' }, { status: 400 });
+		}
+
+		const maNV = taiKhoan.manv as string;
+
 		// Tự động tạo mã SoPX nếu không có (format: PX01, PX02, ...)
 		let soPX = phieu?.SoPX;
 		if (!soPX) {
@@ -110,7 +127,7 @@ export async function POST(req: Request) {
 		// Lưu thông tin phiếu xuất hàng (Save export slip information)
 		const { data: newPhieu, error: errPX } = await supabase
 			.from('phieuxuat')
-			.insert([{ sopx: soPX, ngayxuat: phieu.NgayXuat ?? null, manv: phieu.MaNV ?? null }])
+			.insert([{ sopx: soPX, ngayxuat: phieu.NgayXuat ?? null, manv: maNV }])
 			.select()
 			.single();
 
@@ -167,12 +184,99 @@ export async function POST(req: Request) {
 		// Ghi log
 		await logCRUD('TAO', 'phieuxuat', soPX, null, newPhieu);
 
+		// Tính tổng tiền của phiếu xuất
+		const tongTien = chitiet.reduce((sum: number, row: any) => {
+			return sum + ((row.SLXuat || 0) * (row.DonGia || 0));
+		}, 0);
+
+		// Tự động tạo hóa đơn nếu có MaKH
+		let maHD: string | null = null;
+		if (phieu.MaKH) {
+			try {
+				// Lấy mã HD lớn nhất hiện có
+				const { data: lastHD } = await supabase
+					.from('hoadon')
+					.select('mahd')
+					.ilike('mahd', 'HD%')
+					.order('mahd', { ascending: false })
+					.limit(1)
+					.maybeSingle();
+
+				let nextNum = 1;
+				if (lastHD?.mahd) {
+					const match = (lastHD.mahd as string).match(/HD(\d+)/);
+					if (match) {
+						nextNum = parseInt(match[1], 10) + 1;
+					}
+				}
+
+				maHD = 'HD' + String(nextNum).padStart(2, '0');
+
+				// Sử dụng MaNV lấy từ session cho hóa đơn
+				const resolvedMaNV: string | null = maNV;
+
+				// Tạo hóa đơn
+				const { data: newHD, error: errHD } = await supabase
+					.from('hoadon')
+					.insert({
+						mahd: maHD,
+						ngaylap: phieu.NgayXuat || new Date().toISOString().split('T')[0],
+						makh: phieu.MaKH,
+						tongtien: tongTien,
+						trangthai: 'Chưa thanh toán',
+						sopx: soPX,
+						manv: resolvedMaNV,
+						hinhthucgiao: phieu.HinhThucGiao || 'Giao hàng',
+						phuongthuctt: phieu.PhuongThucTT || 'Tiền mặt',
+					})
+					.select()
+					.single();
+
+				if (errHD) {
+					// Log lỗi nhưng không rollback phiếu xuất
+					await logActivity({
+						action: 'TAO',
+						table: 'hoadon',
+						recordId: maHD,
+						status: 'LOI',
+						error: errHD.message,
+					});
+					// Tiếp tục trả về phiếu xuất dù không tạo được hóa đơn
+				} else {
+					// Tạo chi tiết hóa đơn từ chi tiết phiếu xuất
+					const chiTietHD = chitiet.map((row: any) => ({
+						mahd: maHD,
+						mahh: row.MaHH,
+						soluong: row.SLXuat,
+						dongia: row.DonGia,
+						tongtien: (row.SLXuat || 0) * (row.DonGia || 0),
+					}));
+
+					await supabase.from('ct_hoadon').insert(chiTietHD);
+
+					// Ghi log tạo hóa đơn
+					await logCRUD('TAO', 'hoadon', maHD!, null, newHD);
+				}
+			} catch (invoiceErr: any) {
+				// Log lỗi nhưng không rollback phiếu xuất
+				await logActivity({
+					action: 'TAO',
+					table: 'hoadon',
+					recordId: maHD || 'UNKNOWN',
+					status: 'LOI',
+					error: invoiceErr.message,
+				});
+			}
+		}
+
 		return NextResponse.json({
 			ok: true,
 			data: {
 				SoPX: soPX,
 				NgayXuat: phieu.NgayXuat,
-				MaNV: phieu.MaNV,
+				MaNV: maNV,
+				TongTien: tongTien,
+				MaHD: maHD, // Trả về mã hóa đơn nếu đã tạo
 			},
 		});
 	} catch (e: any) {

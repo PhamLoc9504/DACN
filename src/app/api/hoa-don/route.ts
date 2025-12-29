@@ -22,7 +22,8 @@ export async function GET(req: Request) {
 	try {
 		const { searchParams } = new URL(req.url);
 		const page = parseInt(searchParams.get('page') || '1', 10);
-		const limit = parseInt(searchParams.get('limit') || '10', 10);
+		const requestedLimit = parseInt(searchParams.get('limit') || '10', 10);
+		const limit = Math.min(Math.max(requestedLimit, 1), 1000);
 		const status = searchParams.get('status')?.trim();
 		const id = searchParams.get('id')?.trim();
 		const q = searchParams.get('q')?.trim();
@@ -52,7 +53,8 @@ export async function GET(req: Request) {
 			return NextResponse.json({ data: camel });
 		}
 
-		const from = (page - 1) * limit;
+		const safePage = Number.isFinite(page) && page > 0 ? page : 1;
+		const from = (safePage - 1) * limit;
 		const to = from + limit - 1;
 		let query = supabase.from('hoadon').select('*', { count: 'exact' }).order('ngaylap', { ascending: false });
 		
@@ -77,9 +79,12 @@ export async function GET(req: Request) {
 		
 		const { data, error, count } = await query.range(from, to);
 		if (error) throw error;
-		return NextResponse.json({ data: (data || []).map(toCamel), total: count || 0, page, limit });
+		return NextResponse.json({ data: (data || []).map(toCamel), total: count || 0, page: safePage, limit });
 	} catch (e: any) {
-		return NextResponse.json({ error: e.message || 'Server error' }, { status: 500 });
+		return NextResponse.json(
+			{ error: e?.message || 'Server error', code: e?.code || 'DATABASE_ERROR' },
+			{ status: 500 },
+		);
 	}
 }
 

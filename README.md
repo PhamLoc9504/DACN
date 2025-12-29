@@ -2,13 +2,21 @@ This is a Next.js app for Warehouse Management (Quản lý kho hàng) using Supa
 
 ## Getting Started
 
-First, create `.env.local` with your Supabase keys:
+First, create `.env.local` with your Supabase and S3 credentials (do **not** commit real keys):
 
 ```
-NEXT_PUBLIC_SUPABASE_URL=https://vvfyrmokhzekpxwqdixg.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ2ZnlybW9raHpla3B4d3FkaXhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE4MzYxODgsImV4cCI6MjA3NzQxMjE4OH0.wbIvlNrhKlRmTfM4_mmUJs08jkommFT5Olf_RQVNMIo
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 # server-only
-SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ2ZnlybW9raHpla3B4d3FkaXhnIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MTgzNjE4OCwiZXhwIjoyMDc3NDEyMTg4fQ.u4i_PMRR3S_iDk2bRtSLLQhUmf-zQZtVePksUrx5btA
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+
+# S3-compatible storage for backups (optional)
+S3_ENDPOINT=your-s3-endpoint
+S3_REGION=ap-southeast-1
+S3_ACCESS_KEY_ID=your-access-key-id
+S3_SECRET_ACCESS_KEY=your-secret-access-key
+S3_BUCKET=backups
 ```
 
 Then run the development server:

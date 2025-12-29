@@ -13,7 +13,10 @@ export default function AppShell({ children, session }: { children: React.ReactN
   const openTimerRef = useRef<number | undefined>(undefined);
   const closeTimerRef = useRef<number | undefined>(undefined);
   const pathname = usePathname();
-  const isAuth = pathname?.startsWith('/login') || pathname?.startsWith('/register');
+  const isAuth =
+    pathname?.startsWith('/login') ||
+    pathname?.startsWith('/register') ||
+    pathname?.startsWith('/hoa-don/e-invoice');
 
   function readClientSession() {
     try {

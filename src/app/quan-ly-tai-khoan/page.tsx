@@ -12,6 +12,8 @@ import {
 	UserRole,
 	resolveUserRole,
 } from '@/lib/roles';
+import ErrorDisplay from '@/components/ErrorDisplay';
+import { handleApiError, formatErrorForDisplay } from '@/lib/errorHandler';
 
 type TaiKhoan = {
 	MaTK: string;
@@ -47,6 +49,7 @@ export default function QuanLyTaiKhoanPage() {
 		vaitro: UserRole.WAREHOUSE_STAFF,
 		trangthai: 'Hoạt động',
 	});
+	const [error, setError] = useState<ReturnType<typeof formatErrorForDisplay> | null>(null);
 
 	useEffect(() => {
 		loadData();
@@ -55,23 +58,31 @@ export default function QuanLyTaiKhoanPage() {
 
 	async function loadData() {
 		setLoading(true);
+		setError(null);
 		const params = new URLSearchParams();
 		if (q) params.set('q', q);
 		if (vaitro) params.set('vaitro', vaitro);
 		if (trangthai) params.set('trangthai', trangthai);
 		params.set('page', String(page));
 		params.set('limit', String(limit));
-		const res = await fetch(`/api/tai-khoan?${params.toString()}`, {
-			credentials: 'include',
-		}).then((r) => r.json());
-		if (res.error) {
-			alert(res.error);
+		try {
+			const res = await fetch(`/api/tai-khoan?${params.toString()}`, {
+				credentials: 'include',
+			}).then((r) => r.json());
+			if (res.error) {
+				const appError = handleApiError(res);
+				setError(formatErrorForDisplay(appError));
+				setLoading(false);
+				return;
+			}
+			setRows(res.data || []);
+			setTotal(res.total || 0);
 			setLoading(false);
-			return;
+		} catch (err) {
+			const appError = handleApiError(err);
+			setError(formatErrorForDisplay(appError));
+			setLoading(false);
 		}
-		setRows(res.data || []);
-		setTotal(res.total || 0);
-		setLoading(false);
 	}
 
 	async function loadNhanVien() {
@@ -113,8 +124,10 @@ export default function QuanLyTaiKhoanPage() {
 
 	async function handleSubmit(e: React.FormEvent) {
 		e.preventDefault();
+		setError(null);
 		if (!editing && !formData.matkhau) {
-			alert('Vui lòng nhập mật khẩu');
+			const appError = handleApiError({ error: 'Vui lòng nhập mật khẩu', statusCode: 400 });
+			setError(formatErrorForDisplay(appError));
 			return;
 		}
 
@@ -142,14 +155,16 @@ export default function QuanLyTaiKhoanPage() {
 
 			const data = await res.json();
 			if (!res.ok) {
-				alert(data.error || 'Có lỗi xảy ra');
+				const appError = handleApiError(data);
+				setError(formatErrorForDisplay(appError));
 				return;
 			}
 
 			closeModal();
 			loadData();
 		} catch (err: any) {
-			alert(err.message || 'Có lỗi xảy ra');
+			const appError = handleApiError(err);
+			setError(formatErrorForDisplay(appError));
 		}
 	}
 
@@ -164,18 +179,26 @@ export default function QuanLyTaiKhoanPage() {
 
 			const data = await res.json();
 			if (!res.ok) {
-				alert(data.error || 'Có lỗi xảy ra');
+				const appError = handleApiError(data);
+				setError(formatErrorForDisplay(appError));
 				return;
 			}
 
 			loadData();
 		} catch (err: any) {
-			alert(err.message || 'Có lỗi xảy ra');
+			const appError = handleApiError(err);
+			setError(formatErrorForDisplay(appError));
 		}
 	}
 
 	return (
 		<div className="space-y-6 bg-[#f9f5f1] min-h-screen p-6 text-gray-800">
+			{error && (
+				<ErrorDisplay
+					error={error}
+					onDismiss={() => setError(null)}
+				/>
+			)}
 			{/* --- Bộ lọc & tìm kiếm --- */}
 			<div className="bg-white rounded-2xl p-6 shadow-sm border border-[#f5ebe0]">
 				<div className="flex items-center justify-between mb-5">

@@ -104,17 +104,22 @@ export default function NhaCungCapPage() {
 	}
 
 	return (
-		<div className="space-y-6 bg-[#f9f5f1] min-h-screen p-6 text-gray-800">
-			<div className="bg-white rounded-2xl p-6 shadow-sm border border-[#f5ebe0]">
+		<div className="space-y-6 bg-slate-100 min-h-screen p-6 text-slate-900">
+			<div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
 				<div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-5">
-					<h1 className="text-2xl font-semibold mb-0 text-[#d47b8a]">🏢 Quản lý nhà cung cấp</h1>
+					<h1 className="text-2xl font-semibold mb-0 text-slate-900 flex items-center gap-2">
+						<span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 text-white text-lg shadow-md">
+							🏢
+						</span>
+						<span>Quản lý nhà cung cấp</span>
+					</h1>
 					<Button onClick={openCreateModal}>➕ Thêm nhà cung cấp</Button>
 				</div>
 				<div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
 					<div>
-						<label className="block text-sm mb-1 text-gray-500">Tìm kiếm</label>
+						<label className="block text-sm mb-1 text-slate-600">Tìm kiếm</label>
 						<input
-							className="w-full bg-[#fce7ec] border border-[#f9dfe3] rounded-xl px-3 py-2 focus:ring-2 focus:ring-[#d47b8a] outline-none transition placeholder:text-gray-400"
+							className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-sm text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none transition placeholder:text-slate-400"
 							placeholder="Nhập tên hoặc SĐT nhà cung cấp..."
 							value={q}
 							onChange={(e) => {
@@ -124,9 +129,9 @@ export default function NhaCungCapPage() {
 						/>
 					</div>
 					<div>
-						<label className="block text-sm mb-1 text-gray-500">Hiển thị</label>
+						<label className="block text-sm mb-1 text-slate-600">Hiển thị</label>
 						<select
-							className="w-full bg-[#fce7ec] border border-[#f9dfe3] rounded-xl px-3 py-2 text-gray-800 focus:ring-2 focus:ring-[#d47b8a] outline-none transition"
+							className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-sm text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none transition"
 							value={limit}
 							onChange={(e) => {
 								setPage(1);
@@ -141,10 +146,10 @@ export default function NhaCungCapPage() {
 				</div>
 			</div>
 
-			<div className="rounded-2xl bg-white border border-[#f5ebe0] shadow-sm overflow-hidden">
+			<div className="rounded-2xl bg-white border border-gray-200 shadow-sm overflow-hidden">
 				<table className="min-w-full text-sm">
 					<thead>
-						<tr className="text-left bg-[#f9f5f1] text-[#b07c83] border-b border-[#f5ebe0]">
+						<tr className="text-left bg-slate-50 text-slate-600 border-b border-gray-200">
 							<th className="py-3 px-4 font-medium">Mã NCC</th>
 							<th className="py-3 px-4 font-medium">Tên nhà cung cấp</th>
 							<th className="py-3 px-4 font-medium">SĐT</th>
@@ -155,10 +160,10 @@ export default function NhaCungCapPage() {
 					<tbody>
 						{loading &&
 							Array.from({ length: 5 }).map((_, i) => (
-								<tr key={i} className="border-b border-[#f5ebe0] animate-pulse">
+								<tr key={i} className="border-b border-gray-200 animate-pulse">
 									{Array.from({ length: 5 }).map((_, j) => (
 										<td key={j} className="py-3 px-4">
-											<div className="h-4 w-24 bg-[#f9dfe3] rounded" />
+											<div className="h-4 w-24 bg-slate-200 rounded" />
 										</td>
 									))}
 								</tr>
@@ -168,13 +173,13 @@ export default function NhaCungCapPage() {
 							rows.map((r) => (
 								<tr
 									key={r.MaNCC}
-									className="border-b border-[#f5ebe0] hover:bg-[#fce7ec]/40 transition cursor-pointer"
+									className="border-b border-gray-200 hover:bg-slate-50 transition cursor-pointer"
 									onClick={() => openEditModal(r)}
 								>
 									<td className="py-3 px-4 font-medium">{r.MaNCC}</td>
 									<td className="py-3 px-4">{r.TenNCC}</td>
-									<td className="py-3 px-4 text-gray-700">{r.SDT || '-'}</td>
-									<td className="py-3 px-4 text-gray-600">{r.DiaChi || '-'}</td>
+									<td className="py-3 px-4 text-slate-700">{r.SDT || '-'}</td>
+									<td className="py-3 px-4 text-slate-600">{r.DiaChi || '-'}</td>
 									<td className="py-3 px-4">
 										<TableActions
 											actions={[
@@ -198,8 +203,8 @@ export default function NhaCungCapPage() {
 
 						{!loading && rows.length === 0 && (
 							<tr>
-								<td colSpan={5} className="py-10 text-center text-gray-500 bg-white">
-									<div className="mx-auto h-10 w-10 rounded-full bg-[#fce7ec] mb-3" />
+								<td colSpan={5} className="py-10 text-center text-slate-500 bg-white">
+									<div className="mx-auto h-10 w-10 rounded-full bg-slate-200 mb-3" />
 									Không có dữ liệu
 								</td>
 							</tr>
@@ -223,9 +228,9 @@ export default function NhaCungCapPage() {
 				<form className="space-y-4" onSubmit={handleSubmit}>
 					<div className="grid grid-cols-2 gap-3">
 						<div>
-							<label className="block text-sm mb-1 text-gray-500">Mã nhà cung cấp *</label>
+							<label className="block text-sm mb-1 text-slate-600">Mã nhà cung cấp *</label>
 							<input
-								className="w-full border rounded px-3 py-2"
+								className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm"
 								value={form.MaNCC}
 								onChange={(e) => setForm({ ...form, MaNCC: e.target.value })}
 								required
@@ -233,9 +238,9 @@ export default function NhaCungCapPage() {
 							/>
 						</div>
 						<div>
-							<label className="block text-sm mb-1 text-gray-500">Tên nhà cung cấp *</label>
+							<label className="block text-sm mb-1 text-slate-600">Tên nhà cung cấp *</label>
 							<input
-								className="w-full border rounded px-3 py-2"
+								className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm"
 								value={form.TenNCC}
 								onChange={(e) => setForm({ ...form, TenNCC: e.target.value })}
 								required
@@ -243,24 +248,24 @@ export default function NhaCungCapPage() {
 						</div>
 					</div>
 					<div>
-						<label className="block text-sm mb-1 text-gray-500">Số điện thoại</label>
+						<label className="block text-sm mb-1 text-slate-600">Số điện thoại</label>
 						<input
-							className="w-full border rounded px-3 py-2"
+							className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm"
 							value={form.SDT}
 							onChange={(e) => setForm({ ...form, SDT: e.target.value })}
 						/>
 					</div>
 					<div>
-						<label className="block text-sm mb-1 text-gray-500">Địa chỉ</label>
+						<label className="block text-sm mb-1 text-slate-600">Địa chỉ</label>
 						<textarea
-							className="w-full border rounded px-3 py-2"
+							className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm"
 							rows={3}
 							value={form.DiaChi}
 							onChange={(e) => setForm({ ...form, DiaChi: e.target.value })}
 						/>
 					</div>
 					{errorMsg && (
-						<div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">
+						<div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2">
 							{errorMsg}
 						</div>
 					)}

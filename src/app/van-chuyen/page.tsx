@@ -133,16 +133,21 @@ export default function VanChuyenPage() {
 	}
 
 	return (
-		<div className="space-y-6 bg-[#f9f5f1] min-h-screen p-6 text-gray-800">
+		<div className="space-y-6 bg-slate-100 min-h-screen p-6 text-slate-900">
 			{/* --- Bộ lọc & tìm kiếm --- */}
-			<div className="bg-white rounded-2xl p-6 shadow-sm border border-[#f5ebe0]">
-				<h1 className="text-2xl font-semibold mb-5 text-[#d47b8a]">🚚 Quản lý vận chuyển</h1>
+			<div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
+				<h1 className="text-2xl font-semibold mb-5 text-slate-900 flex items-center gap-2">
+					<span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-tr from-sky-500 via-indigo-500 to-purple-500 text-white text-lg shadow-md">
+						🚚
+					</span>
+					<span>Quản lý vận chuyển</span>
+				</h1>
 				<div className="grid md:grid-cols-3 gap-4">
 					{/* Ô tìm kiếm */}
 					<div className="md:col-span-2">
-						<label className="block text-sm mb-1 text-gray-500">Tìm kiếm</label>
+						<label className="block text-sm mb-1 text-slate-600">Tìm kiếm</label>
 						<input
-							className="w-full bg-[#fce7ec] border border-[#f9dfe3] rounded-xl px-3 py-2 focus:ring-2 focus:ring-[#d47b8a] outline-none transition placeholder:text-gray-400"
+							className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-sm text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none transition placeholder:text-slate-400"
 							placeholder="Nhập mã VC, mã HĐ hoặc địa chỉ nhận..."
 							value={q}
 							onChange={(e) => {
@@ -154,9 +159,9 @@ export default function VanChuyenPage() {
 
 					{/* Lọc trạng thái */}
 					<div>
-						<label className="block text-sm mb-1 text-gray-500">Trạng thái</label>
+						<label className="block text-sm mb-1 text-slate-600">Trạng thái</label>
 						<select
-							className="w-full bg-[#fce7ec] border border-[#f9dfe3] rounded-xl px-3 py-2 text-gray-800 focus:ring-2 focus:ring-[#d47b8a] outline-none transition"
+							className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-sm text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none transition"
 							value={status}
 							onChange={(e) => {
 								setPage(1);
@@ -175,9 +180,9 @@ export default function VanChuyenPage() {
 
 				{/* Hiển thị số lượng */}
 				<div className="mt-4">
-					<label className="block text-sm mb-1 text-gray-500">Hiển thị</label>
+					<label className="block text-sm mb-1 text-slate-600">Hiển thị</label>
 					<select
-						className="w-full bg-[#fce7ec] border border-[#f9dfe3] rounded-xl px-3 py-2 text-gray-800 focus:ring-2 focus:ring-[#d47b8a] outline-none transition max-w-xs"
+						className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-sm text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none transition max-w-xs"
 						value={limit}
 						onChange={(e) => {
 							setPage(1);
@@ -192,10 +197,10 @@ export default function VanChuyenPage() {
 			</div>
 
 			{/* --- Bảng dữ liệu --- */}
-			<div className="rounded-2xl bg-white border border-[#f5ebe0] shadow-sm overflow-hidden">
+			<div className="rounded-2xl bg-white border border-gray-200 shadow-sm overflow-hidden">
 				<table className="min-w-full text-sm">
 					<thead>
-						<tr className="text-left bg-[#f9f5f1] text-[#b07c83] border-b border-[#f5ebe0]">
+						<tr className="text-left bg-slate-50 text-slate-600 border-b border-gray-200">
 							<th className="py-3 px-4 font-medium">Mã VC</th>
 							<th className="py-3 px-4 font-medium">Mã HĐ</th>
 							<th className="py-3 px-4 font-medium">Khách hàng</th>
@@ -210,10 +215,10 @@ export default function VanChuyenPage() {
 						{/* Skeleton */}
 						{loading &&
 							Array.from({ length: 5 }).map((_, i) => (
-								<tr key={`sk-${i}`} className="border-b border-[#f5ebe0] animate-pulse">
+								<tr key={`sk-${i}`} className="border-b border-gray-200 animate-pulse">
 									{Array.from({ length: 7 }).map((_, j) => (
 										<td key={j} className="py-3 px-4">
-											<div className="h-4 w-20 bg-[#f9dfe3] rounded" />
+											<div className="h-4 w-20 bg-slate-200 rounded" />
 										</td>
 									))}
 								</tr>
@@ -224,7 +229,7 @@ export default function VanChuyenPage() {
 							rows.map((r) => (
 								<tr
 									key={r.MaVC}
-									className="border-b border-[#f5ebe0] hover:bg-[#fce7ec]/40 transition cursor-pointer"
+									className="border-b border-gray-200 hover:bg-slate-50 transition cursor-pointer"
 									onClick={() => openDetail(r)}
 								>
 									<td className="py-3 px-4 font-medium">{r.MaVC}</td>
@@ -285,8 +290,8 @@ export default function VanChuyenPage() {
 						{/* Không có dữ liệu */}
 						{!loading && rows.length === 0 && (
 							<tr>
-								<td colSpan={7} className="py-10 text-center text-gray-500 bg-white">
-									<div className="mx-auto h-10 w-10 rounded-full bg-[#fce7ec] mb-3" />
+								<td colSpan={7} className="py-10 text-center text-slate-500 bg-white">
+									<div className="mx-auto h-10 w-10 rounded-full bg-slate-200 mb-3" />
 									Không có dữ liệu
 								</td>
 							</tr>
@@ -309,12 +314,12 @@ export default function VanChuyenPage() {
 				{selectedVC && (
 					<div className="space-y-4">
 						{/* Thông tin vận chuyển */}
-						<div className="bg-[#f9f5f1] rounded-xl p-4 space-y-3">
-							<h3 className="font-semibold text-[#d47b8a] flex items-center gap-2">
+						<div className="bg-slate-50 rounded-xl p-4 space-y-3">
+							<h3 className="font-semibold text-indigo-600 flex items-center gap-2">
 								<Truck className="w-5 h-5" />
 								Thông tin vận chuyển
 							</h3>
-							<div className="grid grid-cols-2 gap-3 text-sm">
+							<div className="grid grid-cols-2 gap-3 text-sm text-slate-700">
 								<div>
 									<span className="text-gray-500">Mã VC:</span>
 									<span className="ml-2 font-medium">{selectedVC.MaVC}</span>
@@ -341,7 +346,7 @@ export default function VanChuyenPage() {
 									</span>
 								</div>
 								<div className="col-span-2">
-									<span className="text-gray-500 flex items-start gap-2">
+									<span className="text-slate-500 flex items-start gap-2">
 										<MapPin className="w-4 h-4 mt-0.5" />
 										Địa chỉ nhận:
 									</span>
@@ -357,7 +362,7 @@ export default function VanChuyenPage() {
 									<CreditCard className="w-5 h-5" />
 									Thông tin hóa đơn
 								</h3>
-								<div className="grid grid-cols-2 gap-3 text-sm">
+								<div className="grid grid-cols-2 gap-3 text-sm text-slate-700">
 									<div>
 										<span className="text-gray-500">Mã HĐ:</span>
 										<span className="ml-2 font-medium">{selectedVC.HoaDon.MaHD}</span>
@@ -399,7 +404,7 @@ export default function VanChuyenPage() {
 									<User className="w-5 h-5" />
 									Thông tin khách hàng
 								</h3>
-								<div className="grid grid-cols-2 gap-3 text-sm">
+								<div className="grid grid-cols-2 gap-3 text-sm text-slate-700">
 									<div>
 										<span className="text-gray-500">Mã KH:</span>
 										<span className="ml-2 font-medium">{selectedVC.KhachHang.MaKH}</span>
@@ -445,7 +450,7 @@ export default function VanChuyenPage() {
 						<div>
 							<label className="block text-sm mb-2 text-gray-500">Trạng thái mới *</label>
 							<select
-								className="w-full bg-[#fce7ec] border border-[#f9dfe3] rounded-xl px-3 py-2 focus:ring-2 focus:ring-[#d47b8a] outline-none transition"
+								className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-sm text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none transition"
 								value={newStatus}
 								onChange={(e) => setNewStatus(e.target.value)}
 							>

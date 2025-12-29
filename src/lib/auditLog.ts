@@ -43,33 +43,37 @@ interface AuditLogParams {
 export async function logActivity(params: AuditLogParams): Promise<void> {
   try {
     const session = await getSessionFromCookies();
-    if (!session) return; // Không log nếu không có session
-
     const supabase = getServerSupabase();
-    
+
     // Lấy thông tin IP và User-Agent từ headers
     const headersList = await headers();
-    const ipAddress = params.ipAddress || 
-      headersList.get('x-forwarded-for')?.split(',')[0]?.trim() || 
-      headersList.get('x-real-ip') || 
+    const ipAddress =
+      params.ipAddress ||
+      headersList.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+      headersList.get('x-real-ip') ||
       'unknown';
     const userAgent = params.userAgent || headersList.get('user-agent') || 'unknown';
 
-    // Lấy MaNV từ tài khoản
-    const { data: tkData } = await supabase
-      .from('taikhoan')
-      .select('manv')
-      .eq('matk', session.maTk)
-      .limit(1)
-      .maybeSingle();
+    let maTk: string | null = session?.maTk || null;
+    let maNV: string | null = null;
+
+    if (maTk) {
+      const { data: tkData } = await supabase
+        .from('taikhoan')
+        .select('manv')
+        .eq('matk', maTk)
+        .limit(1)
+        .maybeSingle();
+      maNV = (tkData?.manv as string | null) || null;
+    }
 
     const detailStr = typeof params.detail === 'string' 
       ? params.detail 
       : JSON.stringify(params.detail || {});
 
     await supabase.from('audit_log').insert({
-      matk: session.maTk,
-      manv: tkData?.manv || null,
+      matk: maTk,
+      manv: maNV,
       loai_hanh_dong: params.action,
       bang: params.table || null,
       id_record: params.recordId || null,

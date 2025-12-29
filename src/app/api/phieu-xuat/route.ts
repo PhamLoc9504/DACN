@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/supabaseClient';
 
-function toCamel(row: any) {
+function toCamel(row: any, tongTien?: number) {
 	return {
 		SoPX: row.sopx,
 		NgayXuat: row.ngayxuat,
 		MaNV: row.manv,
+		TongTien: tongTien || 0,
 	};
 }
 
@@ -44,8 +45,21 @@ export async function GET(req: Request) {
 		const { data, error, count } = await query.range(from, to);
 		if (error) throw error;
 
+		// Tính tổng tiền cho từng phiếu xuất từ chi tiết
+		const enrichedData = await Promise.all(
+			(data || []).map(async (row: any) => {
+				const { data: chiTiet } = await supabase
+					.from('ctphieuxuat')
+					.select('tongtien')
+					.eq('sopx', row.sopx);
+				
+				const tongTien = (chiTiet || []).reduce((sum: number, ct: any) => sum + Number(ct.tongtien || 0), 0);
+				return toCamel(row, tongTien);
+			})
+		);
+
 		return NextResponse.json({
-			data: (data || []).map(toCamel),
+			data: enrichedData,
 			total: count || 0,
 			page,
 			limit,

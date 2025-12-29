@@ -44,8 +44,7 @@ type SidebarItem = {
 };
 
 const dashboardItems: SidebarItem[] = [
-	{ href: '/', label: 'Dashboard Doanh Thu', feature: 'dashboard', icon: <LayoutDashboard className="w-4 h-4" /> },
-	{ href: '/thong-ke-khach-hang', label: 'Dashboard Khách Hàng', feature: 'dashboard', icon: <Users className="w-4 h-4" /> },
+	{ href: '/', label: 'Dashboard', feature: 'dashboard', icon: <LayoutDashboard className="w-4 h-4" /> },
 ];
 
 const items: SidebarItem[] = [
@@ -83,8 +82,6 @@ export default function Sidebar({ session }: { session?: AppSession | null }) {
 		? systemItems.filter((item) => canAccessFeature(role, item.feature, item.required ?? 'view'))
 		: [];
 	const showSystem = visibleSystem.length > 0;
-	const isDashboardRoute = visibleDashboard.some((i) => pathname === i.href);
-	const [openDashboard, setOpenDashboard] = useState(isDashboardRoute);
   const [openSystem, setOpenSystem] = useState(false);
 
   const handleLogout = () => {
@@ -150,72 +147,41 @@ export default function Sidebar({ session }: { session?: AppSession | null }) {
 
 				{/* Nav Items */}
 				<nav className="p-4 space-y-1 flex-1 overflow-y-auto scrollbar-thin">
-					{/* Dashboard group */}
-					{visibleDashboard.length > 0 && (
-						<div className="space-y-1 mb-3">
-							<button
-								type="button"
-								onClick={() => setOpenDashboard((v) => !v)}
-								className={cn(
-									'group flex w-full items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-semibold transition-all duration-200 hover:bg-slate-50/80',
-									isDashboardRoute || openDashboard
-										? 'text-blue-600 bg-blue-50/50'
-										: 'text-slate-500 hover:text-slate-700'
-								)}
-							>
-                <div className={cn(
-                  "p-1.5 rounded-lg transition-colors",
-                  isDashboardRoute || openDashboard
-                    ? 'bg-blue-100 text-blue-600'
-                    : 'bg-slate-100 text-slate-500 group-hover:bg-blue-50 group-hover:text-blue-500'
-                )}>
+					{/* Dashboard (một mục duy nhất) */}
+					{visibleDashboard.length > 0 && (() => {
+            const dash = visibleDashboard[0];
+            const active = pathname === dash.href;
+            return (
+              <Link
+                key={dash.href}
+                href={dash.href}
+                className={cn(
+                  'group relative flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all duration-200 mb-3',
+                  active
+                    ? 'text-blue-600 bg-blue-50/70'
+                    : 'text-slate-600 hover:text-slate-700 hover:bg-slate-50/80'
+                )}
+              >
+                {active && (
+                  <motion.div
+                    layoutId="activeIndicator"
+                    className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 rounded-r bg-blue-500"
+                  />
+                )}
+                <div
+                  className={cn(
+                    'p-1.5 rounded-lg transition-colors',
+                    active
+                      ? 'bg-blue-100 text-blue-600'
+                      : 'bg-slate-100 text-slate-500 group-hover:bg-blue-50 group-hover:text-blue-500'
+                  )}
+                >
                   <LayoutDashboard className="w-4 h-4" />
                 </div>
-								<span>Dashboard</span>
-								{openDashboard ? (
-                  <ChevronDown className="ml-auto w-4 h-4 text-slate-400" />
-                ) : (
-                  <ChevronRight className="ml-auto w-4 h-4 text-slate-400" />
-                )}
-							</button>
-							<AnimatePresence>
-								{openDashboard && (
-									<motion.div 
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                    transition={{ duration: 0.2 }}
-                    className="space-y-1 pl-9"
-                  >
-										{visibleDashboard.map((i) => {
-											const active = pathname === i.href;
-											return (
-												<Link
-													key={i.href}
-													href={i.href}
-													className={cn(
-														'group relative flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all duration-200',
-														active
-															? 'text-blue-600 bg-blue-50'
-															: 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-													)}
-												>
-													{active && (
-														<motion.div 
-                              layoutId="activeIndicator"
-                              className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 rounded-r bg-blue-500"
-                                                            />
-													)}
-													<span className="text-slate-400">{i.icon}</span>
-													<span className="flex-1">{i.label}</span>
-												</Link>
-											);
-										})}
-									</motion.div>
-								)}
-							</AnimatePresence>
-						</div>
-					)}
+                <span className="flex-1">{dash.label}</span>
+              </Link>
+            );
+          })()}
 
 					{visiblePrimary.map((i) => {
 						const active = pathname === i.href;
