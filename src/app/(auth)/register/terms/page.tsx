@@ -75,53 +75,56 @@ export default function RegisterTermsPage() {
   const router = useRouter();
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-8 bg-gradient-to-b from-[#fffdfb] to-[#fff8f3] text-[#4e3c33]">
-      <div className="w-full max-w-3xl bg-white rounded-2xl shadow-lg border border-[#f5ebe0] p-6 md:p-8 space-y-6">
+    <div className="min-h-screen flex items-center justify-center px-4 py-10 bg-gradient-to-br from-[#f2f4fb] via-[#e6ebf7] to-[#dbe1f0] text-[#3d4766]">
+      <div className="w-full max-w-3xl bg-[#eef1f8]/90 backdrop-blur-xl rounded-[28px] shadow-[24px_24px_48px_-28px_rgba(79,90,119,0.4),-18px_-18px_36px_rgba(255,255,255,0.92)] border border-white/60 p-6 md:p-8 space-y-6">
         <button
           type="button"
           onClick={() => router.back()}
-          className="inline-flex items-center text-sm text-[#d47b8a] hover:text-[#c06273]"
+          className="inline-flex items-center text-sm text-[#5f73c7] hover:text-[#4c61bc] font-medium"
         >
           <ArrowLeft className="w-4 h-4 mr-1" />
           Quay lại đăng ký
         </button>
 
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-[#e08d86] to-[#f3bca9] flex items-center justify-center text-white">
+          <div className="h-10 w-10 rounded-xl bg-white shadow-[8px_8px_20px_rgba(146,163,184,0.35),-8px_-8px_20px_rgba(255,255,255,0.95)] flex items-center justify-center text-[#6b7aa6]">
             <ShieldCheck className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-xl md:text-2xl font-semibold text-[#d47b8a]">
-              Điều khoản sử dụng & Thông tin pháp lý
+            <h1 className="text-xl md:text-2xl font-semibold text-[#3d4766]">
+              Điều khoản sử dụng &amp; Thông tin pháp lý
             </h1>
-            <p className="text-sm text-[#9c8579]">
-              Tóm tắt nhanh những cam kết của hệ thống và cơ sở pháp lý tương ứng cho từng nhóm chức năng.
+            <p className="text-sm text-[#6b7aa6]">
+              Tóm tắt nhanh các cam kết của hệ thống và cơ sở pháp lý tương ứng cho từng nhóm chức năng.
             </p>
           </div>
         </div>
 
         <section className="space-y-3">
-          <h2 className="text-sm font-semibold text-[#6b4f43] flex items-center gap-2">
+          <h2 className="text-sm font-semibold text-[#4f5d82] flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-500" />
             Điều khoản áp dụng cho việc đăng ký và sử dụng hệ thống
           </h2>
           <div className="space-y-3 text-sm">
             {SECTIONS.map((s) => (
-              <div key={s.title} className="border border-[#f5ebe0] rounded-xl p-3 bg-[#fffdfb] space-y-2">
+              <div
+                key={s.title}
+                className="border border-[#d9e0f3] rounded-2xl p-4 bg-white/70 shadow-[10px_10px_24px_rgba(146,163,184,0.18),-10px_-10px_24px_rgba(255,255,255,0.95)] space-y-2"
+              >
                 <div className="flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-[#d47b8a]" />
-                  <p className="font-semibold text-[#4e3c33]">{s.title}</p>
+                  <FileText className="w-4 h-4 text-[#5f73c7]" />
+                  <p className="font-semibold text-[#3d4766]">{s.title}</p>
                 </div>
-                <ul className="list-disc list-inside text-xs text-[#6b4f43] space-y-1">
+                <ul className="list-disc list-inside text-xs text-[#556286] space-y-1">
                   {s.bullets.map((b) => (
                     <li key={b}>{b}</li>
                   ))}
                 </ul>
-                <div className="text-[11px] text-[#6b4f43] bg-[#fff4f1] border border-[#fcd5ce] rounded-lg px-3 py-2 italic">
+                <div className="text-[11px] text-[#4f5d82] bg-[#f0f3fb] border border-[#dbe2f5] rounded-lg px-3 py-2 italic">
                   {s.binding}
                 </div>
-                <div className="border-t border-[#f5ebe0] pt-2 mt-2">
-                  <p className="text-[11px] text-[#9c8579] mb-1 flex items-center gap-1">
+                <div className="border-t border-[#dfe5f5] pt-2 mt-2">
+                  <p className="text-[11px] text-[#6b7aa6] mb-1 flex items-center gap-1">
                     Cơ sở pháp lý liên quan:
                   </p>
                   <div className="flex flex-wrap gap-2">
@@ -131,7 +134,7 @@ export default function RegisterTermsPage() {
                         href={law.link}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center gap-1 rounded-full bg-[#ffe4e6] text-[#b91c1c] px-2.5 py-1 text-[11px] hover:bg-[#fecaca]"
+                        className="inline-flex items-center gap-1 rounded-full bg-[#eef2fb] text-[#4254b5] px-2.5 py-1 text-[11px] hover:bg-[#e0e7ff]"
                       >
                         <ExternalLink className="w-3 h-3" />
                         <span className="font-medium">{law.ma}</span>
@@ -145,7 +148,7 @@ export default function RegisterTermsPage() {
           </div>
         </section>
 
-        <section className="space-y-2 text-xs text-[#6b4f43] bg-[#fff7ed] border border-[#fed7aa] rounded-xl p-3">
+        <section className="space-y-2 text-xs text-[#4f5d82] bg-[#f0f3fb] border border-[#dbe2f5] rounded-2xl p-4 shadow-[8px_8px_18px_rgba(146,163,184,0.18),-8px_-8px_18px_rgba(255,255,255,0.92)]">
           <p className="font-semibold">Khi bấm “Đăng ký”:</p>
           <ul className="list-disc list-inside space-y-1">
             <li>Bạn xác nhận đã đọc và đồng ý với nội dung tóm tắt ở trên.</li>
@@ -164,7 +167,7 @@ export default function RegisterTermsPage() {
           <button
             type="button"
             onClick={() => router.back()}
-            className="inline-flex items-center px-4 py-2 rounded-xl bg-gradient-to-r from-[#e08d86] to-[#f3b8a8] text-white text-sm font-medium hover:brightness-105"
+            className="inline-flex items-center px-4 py-2 rounded-xl bg-gradient-to-r from-[#7fa5ff] to-[#5f73c7] text-white text-sm font-medium shadow-[8px_8px_16px_rgba(111,130,179,0.25),-6px_-6px_14px_rgba(255,255,255,0.95)] hover:brightness-105"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Quay lại đăng ký

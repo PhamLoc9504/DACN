@@ -6,6 +6,7 @@ import Modal from '@/components/Modal';
 import Button from '@/components/Button';
 import { supabase, type Tables } from '@/lib/supabaseClient';
 import { formatVietnamDateTime, formatVietnamDate } from '@/lib/dateUtils';
+
 import ErrorDisplay from '@/components/ErrorDisplay';
 import { handleApiError, formatErrorForDisplay } from '@/lib/errorHandler';
 
@@ -43,7 +44,7 @@ import {
   ChevronRight,
   Tag,
 } from 'lucide-react';
-import { UserRole, hasAnyRole, resolveUserRole } from '@/lib/roles';
+import { UserRole, resolveUserRole, hasAnyRole } from '@/lib/roles';
 
 const TRANGTHAI = ['', 'Chưa thanh toán', 'Đã thanh toán', 'Đang xử lý'];
 
@@ -107,7 +108,14 @@ export default function HoaDonPage() {
   const [paymentResult, setPaymentResult] = useState<any>(null);
   const [customerOptions, setCustomerOptions] = useState<Array<{ MaKH: string; TenKH: string | null }>>([]);
   const [showFilters, setShowFilters] = useState(false);
-  const canManageInvoices = hasAnyRole(me?.vaiTro, [UserRole.ADMIN]);
+  // Quyền quản lý hóa đơn: Admin, kế toán, nhân viên bán hàng, nhân viên kho (cho phép thao tác cơ bản)
+  const canManageInvoices = hasAnyRole(me?.vaiTro, [
+    UserRole.ADMIN,
+    UserRole.ACCOUNTANT,
+    UserRole.SALES_STAFF,
+    UserRole.WAREHOUSE_STAFF,
+  ]);
+
   const [error, setError] = useState<ReturnType<typeof formatErrorForDisplay> | null>(null);
   const [auxLoaded, setAuxLoaded] = useState(false);
 
@@ -247,7 +255,7 @@ export default function HoaDonPage() {
   async function openCreate() {
     await loadAux();
     setEditing({
-      NgayLap: new Date().toISOString().slice(0, 10),
+      NgayLap: new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' }),
       MaKH: '',
       MaNCC: '',
       TongTien: 0,

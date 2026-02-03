@@ -79,6 +79,19 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 			return NextResponse.json({ error: 'Phiếu xuất không tồn tại' }, { status: 404 });
 		}
 
+		// Kiểm tra hóa đơn liên kết: nếu đã thanh toán thì chặn sửa
+		const { data: invoiceStatus } = await supabase
+			.from('hoadon')
+			.select('mahd, trangthai')
+			.eq('sopx', sopx)
+			.maybeSingle();
+		if (invoiceStatus?.trangthai === 'Đã thanh toán') {
+			return NextResponse.json(
+				{ error: 'Phiếu xuất này đã hoàn tất thanh toán. Vui lòng hủy/hoàn tác phiếu thu trước khi sửa nội dung.' },
+				{ status: 400 }
+			);
+		}
+
 		// Lấy chi tiết cũ để hoàn trả tồn kho
 		const { data: oldChiTiet } = await supabase
 			.from('ctphieuxuat')
@@ -155,6 +168,35 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 				// Cập nhật tồn kho
 				const newQty = current - (row.SLXuat || 0);
 				await supabase.from('hanghoa').update({ soluongton: newQty }).eq('mahh', row.MaHH);
+			}
+		}
+
+		// Cập nhật hóa đơn liên kết (nếu có)
+		const tongTienMoi = (chitiet || []).reduce(
+			(s: number, r: any) => s + Number(r.SLXuat || 0) * Number(r.DonGia || 0),
+			0
+		);
+		const { data: invoice } = await supabase.from('hoadon').select('mahd').eq('sopx', sopx).maybeSingle();
+		if (invoice?.mahd) {
+			await supabase
+				.from('hoadon')
+				.update({
+					tongtien: tongTienMoi,
+					ngaylap: phieu?.NgayXuat ?? updatedPhieu?.ngayxuat ?? null,
+					manv: phieu?.MaNV ?? updatedPhieu?.manv ?? null,
+				})
+				.eq('mahd', invoice.mahd);
+
+			await supabase.from('ct_hoadon').delete().eq('mahd', invoice.mahd);
+			const ctHoaDon = (chitiet || []).map((r: any) => ({
+				mahd: invoice.mahd,
+				mahh: r.MaHH,
+				soluong: r.SLXuat,
+				dongia: r.DonGia,
+				tongtien: Number(r.SLXuat || 0) * Number(r.DonGia || 0),
+			}));
+			if (ctHoaDon.length > 0) {
+				await supabase.from('ct_hoadon').insert(ctHoaDon);
 			}
 		}
 

@@ -1,20 +1,21 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Pagination from '@/components/Pagination';
 import Modal from '@/components/Modal';
 import Button from '@/components/Button';
-import { formatVietnamDate } from '@/lib/dateUtils';
+import { formatVietnamDate, formatVietnamDateTime } from '@/lib/dateUtils';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import { handleApiError, formatErrorForDisplay } from '@/lib/errorHandler';
-import { 
-  CheckCircle, 
-  AlertTriangle, 
-  Package, 
-  XCircle, 
-  Edit3, 
-  Printer, 
-  Send, 
+import { BarcodeScanner } from '@/components/BarcodeScanner';
+import {
+  CheckCircle,
+  AlertTriangle,
+  Package,
+  XCircle,
+  Edit3,
+  Printer,
+  Send,
   Trash2,
   Search,
   Filter,
@@ -30,60 +31,110 @@ import {
   Truck,
   Box,
   TrendingUp,
-  Users
+  Users,
+  Barcode,
+  Tag,
+  Calculator
 } from 'lucide-react';
 
 type Row = {
-	SoPX: string;
-	NgayXuat: string | null;
-	MaNV: string | null;
+  SoPX: string;
+  NgayXuat: string | null;
+  MaNV: string | null;
   TongTien?: number;
   TrangThai?: string;
 };
 
 type ChiTiet = {
-	MaHH: string;
-	TenHH: string | null;
-	SLXuat: number;
-	DonGia: number;
-	TongTien: string;
+  MaHH: string;
+  TenHH: string | null;
+  SLXuat: number;
+  DonGia: number;
+  TongTien: string;
 };
 
 export default function XuatHangPage() {
-	const [rows, setRows] = useState<Row[]>([]);
-	const [nhanVienList, setNhanVienList] = useState<Array<{ MaNV: string; HoTen: string | null }>>([]);
+  const [rows, setRows] = useState<Row[]>([]);
+  const [nhanVienList, setNhanVienList] = useState<Array<{ MaNV: string; HoTen: string | null }>>([]);
   const [customerOptions, setCustomerOptions] = useState<Array<{ MaKH: string; TenKH: string | null }>>([]);
   const [me, setMe] = useState<{ maNV: string } | null>(null);
-	const [loading, setLoading] = useState(true);
-	const [open, setOpen] = useState(false);
-	const [detailOpen, setDetailOpen] = useState(false);
-	const [editing, setEditing] = useState<Row | null>(null);
-	const [selectedPX, setSelectedPX] = useState<string | null>(null);
-	const [chiTiet, setChiTiet] = useState<ChiTiet[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [open, setOpen] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [editing, setEditing] = useState<Row | null>(null);
+  const [selectedPX, setSelectedPX] = useState<string | null>(null);
+  const [chiTiet, setChiTiet] = useState<ChiTiet[]>([]);
   const [form, setForm] = useState({ NgayXuat: '', MaNV: '', MaKH: '' });
-	const [products, setProducts] = useState<Array<{ MaHH: string; TenHH: string | null; DonGia: number | null; SoLuongTon: number | null }>>([]);
-	const [lines, setLines] = useState<Array<{ MaHH: string; SLXuat: number; DonGia: number }>>([{ MaHH: '', SLXuat: 1, DonGia: 0 }]);
-	const [q, setQ] = useState('');
-	const [fromDate, setFromDate] = useState('');
-	const [toDate, setToDate] = useState('');
-	const [filterNV, setFilterNV] = useState('');
-	const [page, setPage] = useState(1);
-	const [limit, setLimit] = useState(10);
-	const [total, setTotal] = useState(0);
-	const [openConfirmModal, setOpenConfirmModal] = useState(false);
-	const [openSuccessModal, setOpenSuccessModal] = useState(false);
-	const [validationError, setValidationError] = useState<string | null>(null);
-	const [inventoryError, setInventoryError] = useState<any>(null);
-	const [pendingSubmit, setPendingSubmit] = useState<{ phieu: any; chitiet: any[] } | null>(null);
-	const [successData, setSuccessData] = useState<any>(null);
+  const [products, setProducts] = useState<Array<{ MaHH: string; TenHH: string | null; DonGia: number | null; SoLuongTon: number | null }>>([]);
+  const [lines, setLines] = useState<Array<{ MaHH: string; SLXuat: number; DonGia: number }>>([]);
+  const [showScanner, setShowScanner] = useState(false);
+  const [scanError, setScanError] = useState<string | null>(null);
+  const [scanToast, setScanToast] = useState<{ ma: string; ten?: string | null } | null>(null);
+  const [scannerKey, setScannerKey] = useState(0);
+  const [q, setQ] = useState('');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+  const [filterNV, setFilterNV] = useState('');
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [total, setTotal] = useState(0);
+  const [openConfirmModal, setOpenConfirmModal] = useState(false);
+  const [openSuccessModal, setOpenSuccessModal] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const [inventoryError, setInventoryError] = useState<any>(null);
+  const [pendingSubmit, setPendingSubmit] = useState<{ phieu: any; chitiet: any[] } | null>(null);
+  const [successData, setSuccessData] = useState<any>(null);
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [error, setError] = useState<ReturnType<typeof formatErrorForDisplay> | null>(null);
 
-	useEffect(() => {
-		loadData();
-		loadNhanVien();
+  const nvMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    nhanVienList.forEach((nv) => {
+      if (nv?.MaNV) map[nv.MaNV] = nv.HoTen || nv.MaNV;
+    });
+    return map;
+  }, [nhanVienList]);
+
+  function vietnamNowInput() {
+    const parts = new Intl.DateTimeFormat('sv-SE', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).formatToParts(new Date());
+    const get = (type: string) => parts.find((p) => p.type === type)?.value || '00';
+    return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}`;
+  }
+
+  function toInputValue(dateStr: string | null | undefined) {
+    if (!dateStr) return vietnamNowInput();
+    try {
+      const dt = new Date(dateStr);
+      if (isNaN(dt.getTime())) return vietnamNowInput();
+      const parts = new Intl.DateTimeFormat('sv-SE', {
+        timeZone: 'Asia/Ho_Chi_Minh',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      }).formatToParts(dt);
+      const get = (type: string) => parts.find((p) => p.type === type)?.value || '00';
+      return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}`;
+    } catch {
+      return vietnamNowInput();
+    }
+  }
+
+  useEffect(() => {
+    loadData();
+    loadNhanVien();
     loadCustomers();
-	}, [q, fromDate, toDate, filterNV, page, limit]);
+  }, [q, fromDate, toDate, filterNV, page, limit]);
 
   // Lấy thông tin tài khoản hiện tại để tự gán MaNV khi tạo phiếu
   useEffect(() => {
@@ -122,275 +173,376 @@ export default function XuatHangPage() {
     }
   }
 
-	async function loadData() {
-		setLoading(true);
-		setError(null);
-		const params = new URLSearchParams();
-		if (q) params.set('q', q);
-		if (fromDate) params.set('from', fromDate);
-		if (toDate) params.set('to', toDate);
-		if (filterNV) params.set('manv', filterNV);
-		params.set('page', String(page));
-		params.set('limit', String(limit));
-		try {
-			const res = await fetch(`/api/phieu-xuat?${params.toString()}`, {
-				credentials: 'include',
-			}).then((r) => r.json());
-			if (res.error) {
-				const appError = handleApiError(res);
-				setError(formatErrorForDisplay(appError));
-				setLoading(false);
-				return;
-			}
-			setRows(res.data || []);
-			setTotal(res.total || 0);
-			setLoading(false);
-		} catch (err) {
-			const appError = handleApiError(err);
-			setError(formatErrorForDisplay(appError));
-			setLoading(false);
-		}
-	}
+  async function loadData() {
+    setLoading(true);
+    setError(null);
+    const params = new URLSearchParams();
+    if (q) params.set('q', q);
+    if (fromDate) params.set('from', fromDate);
+    if (toDate) params.set('to', toDate);
+    if (filterNV) params.set('manv', filterNV);
+    params.set('page', String(page));
+    params.set('limit', String(limit));
+    try {
+      const res = await fetch(`/api/phieu-xuat?${params.toString()}`, {
+        credentials: 'include',
+      }).then((r) => r.json());
+      if (res.error) {
+        const appError = handleApiError(res);
+        setError(formatErrorForDisplay(appError));
+        setLoading(false);
+        return;
+      }
+      setRows(res.data || []);
+      setTotal(res.total || 0);
+      setLoading(false);
+    } catch (err) {
+      const appError = handleApiError(err);
+      setError(formatErrorForDisplay(appError));
+      setLoading(false);
+    }
+  }
 
-	async function loadNhanVien() {
-		const res = await fetch('/api/nhan-vien', {
-			credentials: 'include',
-		}).then((r) => r.json());
-		if (res.data) {
-			setNhanVienList(res.data);
-		}
-	}
+  async function loadNhanVien() {
+    const res = await fetch('/api/nhan-vien?limit=1000&page=1', {
+      credentials: 'include',
+    }).then((r) => r.json());
+    if (res.data) {
+      const list = (res.data || []).map((nv: any) => ({
+        MaNV: nv.MaNV,
+        HoTen: nv.HoTen || nv.HoTenNV || nv.TenNV || null,
+      }));
+      setNhanVienList(list);
+    }
+  }
 
-	async function loadChiTiet(sopx: string) {
-		try {
-			const res = await fetch(`/api/phieu-xuat/${sopx}`, {
-				credentials: 'include',
-			}).then((r) => r.json());
-			if (res.error) {
-				const appError = handleApiError(res);
-				setError(formatErrorForDisplay(appError));
-				return;
-			}
-			setChiTiet(res.chiTiet || []);
-		} catch (err) {
-			const appError = handleApiError(err);
-			setError(formatErrorForDisplay(appError));
-		}
-	}
+  async function loadChiTiet(sopx: string): Promise<ChiTiet[]> {
+    try {
+      const res = await fetch(`/api/phieu-xuat/${sopx}`, {
+        credentials: 'include',
+      }).then((r) => r.json());
+      if (res.error) {
+        const appError = handleApiError(res);
+        setError(formatErrorForDisplay(appError));
+        return [];
+      }
+      const list = (res.chiTiet || []) as ChiTiet[];
+      setChiTiet(list);
+      return list;
+    } catch (err) {
+      const appError = handleApiError(err);
+      setError(formatErrorForDisplay(appError));
+      return [];
+    }
+  }
 
-	useEffect(() => {
-		if (!open && !detailOpen) return;
-		(async () => {
-			const res = await fetch('/api/hang-hoa?limit=1000&page=1', {
-				credentials: 'include',
-			}).then((r) => r.json());
-			const list = (res.data || []).map((x: any) => ({
-				MaHH: x.MaHH,
-				TenHH: x.TenHH,
-				DonGia: x.DonGia || 0,
-				SoLuongTon: x.SoLuongTon || 0,
-			}));
-			setProducts(list);
-		})();
-	}, [open, detailOpen]);
+  useEffect(() => {
+    if (!open && !detailOpen) return;
+    (async () => {
+      const res = await fetch('/api/hang-hoa?limit=1000&page=1', {
+        credentials: 'include',
+      }).then((r) => r.json());
+      const list = (res.data || []).map((x: any) => ({
+        MaHH: x.MaHH,
+        TenHH: x.TenHH,
+        DonGia: x.DonGia || 0,
+        SoLuongTon: x.SoLuongTon || 0,
+      }));
+      setProducts(list);
+    })();
+  }, [open, detailOpen]);
 
-	function setLine(index: number, patch: Partial<{ MaHH: string; SLXuat: number; DonGia: number }>) {
-		setLines((prev) => {
-			const next = prev.slice();
-			next[index] = { ...next[index], ...patch } as any;
-			return next;
-		});
-	}
+  function setLine(index: number, patch: Partial<{ MaHH: string; SLXuat: number; DonGia: number }>) {
+    setLines((prev) => {
+      const next = prev.slice();
+      next[index] = { ...next[index], ...patch } as any;
+      return next;
+    });
+  }
 
-	function openCreateModal() {
-		setEditing(null);
+  function ensureProductInList(product: { MaHH: string; TenHH?: string | null; DonGia?: number | null; SoLuongTon?: number | null }) {
+    setProducts((prev) => {
+      const exists = prev.some((p) => p.MaHH === product.MaHH);
+      if (exists) return prev;
+      return [
+        ...prev,
+        {
+          MaHH: product.MaHH,
+          TenHH: product.TenHH || null,
+          DonGia: product.DonGia ?? 0,
+          SoLuongTon: product.SoLuongTon ?? 0,
+        },
+      ];
+    });
+  }
+
+  function applyScannedProduct(product: { MaHH: string; TenHH?: string | null; DonGia?: number | null }) {
+    ensureProductInList(product);
+    setLines((prev) => {
+      const idx = prev.findIndex((l) => l.MaHH === product.MaHH);
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = {
+          ...next[idx],
+          SLXuat: (next[idx].SLXuat || 0) + 1,
+          DonGia: next[idx].DonGia ?? product.DonGia ?? 0,
+        };
+        return next;
+      }
+      const emptyIdx = prev.findIndex((l) => !l.MaHH);
+      if (emptyIdx >= 0) {
+        const next = [...prev];
+        next[emptyIdx] = {
+          ...next[emptyIdx],
+          MaHH: product.MaHH,
+          SLXuat: next[emptyIdx].SLXuat || 1,
+          DonGia: next[emptyIdx].DonGia ?? product.DonGia ?? 0,
+        };
+        return next;
+      }
+      return [...prev, { MaHH: product.MaHH, SLXuat: 1, DonGia: product.DonGia ?? 0 }];
+    });
+  }
+
+  async function handleBarcodeScanned(code: string) {
+    setScanError(null);
+    setScanToast(null);
+
+    // 1) Thử khớp ngay với danh sách products đã tải sẵn (MaHH)
+    const local = products.find((p) => p.MaHH?.toLowerCase() === code.toLowerCase());
+    if (local) {
+      applyScannedProduct(local);
+      setScanToast({ ma: local.MaHH, ten: local.TenHH || '' });
+      setTimeout(() => {
+        setScanToast(null);
+        setShowScanner(false);
+      }, 2000);
+      return;
+    }
+
+    // 2) Tra cứu API: ưu tiên barcode, fallback mahh
+    const tryLookup = async (param: string, value: string) => {
+      const res = await fetch(`/api/hang-hoa/scan?${param}=${encodeURIComponent(value)}`, {
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (res.ok && data?.data) return data.data;
+      return null;
+    };
+
+    try {
+      const byBarcode = await tryLookup('barcode', code);
+      const found = byBarcode ?? (await tryLookup('mahh', code));
+
+      if (!found) {
+        setScanError('Không tìm thấy hàng hóa cho mã này');
+        return;
+      }
+
+      applyScannedProduct(found);
+      setShowScanner(false);
+    } catch (e) {
+      setScanError('Quét mã thất bại, vui lòng thử lại');
+    }
+  }
+
+  function openCreateModal() {
+    setEditing(null);
     setForm({
-      NgayXuat: new Date().toISOString().split('T')[0],
+      NgayXuat: vietnamNowInput(),
       MaNV: me?.maNV || '',
       MaKH: '',
     });
-		setLines([{ MaHH: '', SLXuat: 1, DonGia: 0 }]);
-		setOpen(true);
-	}
+    setLines([]);
+    setOpen(true);
+  }
 
-	function openEditModal(item: Row) {
-		setEditing(item);
-		setForm({
-      NgayXuat: item.NgayXuat || new Date().toISOString().split('T')[0],
-			MaNV: item.MaNV || '',
+  async function openEditModal(item: Row) {
+    setEditing(item);
+    setForm({
+      NgayXuat: toInputValue(item.NgayXuat),
+      MaNV: item.MaNV || '',
       MaKH: '', // Không cho phép chỉnh sửa khách hàng khi edit
-		});
-		loadChiTiet(item.SoPX);
-		setOpen(true);
-	}
+    });
 
-	function openDetailModal(sopx: string) {
-		setSelectedPX(sopx);
-		loadChiTiet(sopx);
-		setDetailOpen(true);
-	}
+    const list = await loadChiTiet(item.SoPX);
+    setLines(
+      (list || []).map((ct) => ({
+        MaHH: ct.MaHH,
+        SLXuat: Number(ct.SLXuat || 0),
+        DonGia: Number(ct.DonGia || 0),
+      }))
+    );
+    setOpen(true);
+  }
 
-	function validateForm(): { valid: boolean; error: string | null } {
-		const chitiet = lines.filter((l) => l.MaHH && l.SLXuat > 0);
-		if (chitiet.length === 0) {
-			return { valid: false, error: 'Vui lòng thêm ít nhất một dòng hàng hóa' };
-		}
+  function openDetailModal(sopx: string) {
+    setSelectedPX(sopx);
+    loadChiTiet(sopx);
+    setDetailOpen(true);
+  }
 
-		for (const l of chitiet) {
-			if (!l.MaHH) {
-				return { valid: false, error: 'Mã hàng hóa là bắt buộc' };
-			}
-			if (!l.SLXuat || l.SLXuat <= 0) {
-				return { valid: false, error: `Số lượng xuất phải lớn hơn 0 cho ${l.MaHH}` };
-			}
-			if (!l.DonGia || l.DonGia < 0) {
-				return { valid: false, error: `Đơn giá phải lớn hơn hoặc bằng 0 cho ${l.MaHH}` };
-			}
-		}
+  function validateForm(): { valid: boolean; error: string | null } {
+    const chitiet = lines.filter((l) => l.MaHH && l.SLXuat > 0);
+    if (chitiet.length === 0) {
+      return { valid: false, error: 'Vui lòng thêm ít nhất một dòng hàng hóa' };
+    }
 
-		return { valid: true, error: null };
-	}
+    for (const l of chitiet) {
+      if (!l.MaHH) {
+        return { valid: false, error: 'Mã hàng hóa là bắt buộc' };
+      }
+      if (!l.SLXuat || l.SLXuat <= 0) {
+        return { valid: false, error: `Số lượng xuất phải lớn hơn 0 cho ${l.MaHH}` };
+      }
+      if (!l.DonGia || l.DonGia < 0) {
+        return { valid: false, error: `Đơn giá phải lớn hơn hoặc bằng 0 cho ${l.MaHH}` };
+      }
+    }
 
-	async function checkInventory(chitiet: any[]): Promise<{ sufficient: boolean; errors: any[] }> {
-		const errors: any[] = [];
-		for (const row of chitiet) {
-			const product = products.find((p) => p.MaHH === row.MaHH);
-			if (!product) {
-				errors.push({ MaHH: row.MaHH, message: `Hàng hóa ${row.MaHH} không tồn tại` });
-				continue;
-			}
-			const ton = product.SoLuongTon || 0;
-			if (ton < row.SLXuat) {
-				errors.push({
-					MaHH: row.MaHH,
-					TenHH: product.TenHH,
-					SoLuongTon: ton,
-					SLXuat: row.SLXuat,
-				});
-			}
-		}
-		return { sufficient: errors.length === 0, errors };
-	}
+    return { valid: true, error: null };
+  }
 
-	async function handleSubmit(e: React.FormEvent) {
-		e.preventDefault();
-		setValidationError(null);
-		setInventoryError(null);
+  async function checkInventory(chitiet: any[]): Promise<{ sufficient: boolean; errors: any[] }> {
+    const errors: any[] = [];
+    for (const row of chitiet) {
+      const product = products.find((p) => p.MaHH === row.MaHH);
+      if (!product) {
+        errors.push({ MaHH: row.MaHH, message: `Hàng hóa ${row.MaHH} không tồn tại` });
+        continue;
+      }
+      const ton = product.SoLuongTon || 0;
+      if (ton < row.SLXuat) {
+        errors.push({
+          MaHH: row.MaHH,
+          TenHH: product.TenHH,
+          SoLuongTon: ton,
+          SLXuat: row.SLXuat,
+        });
+      }
+    }
+    return { sufficient: errors.length === 0, errors };
+  }
 
-		const validation = validateForm();
-		if (!validation.valid) {
-			setValidationError(validation.error);
-			return;
-		}
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setValidationError(null);
+    setInventoryError(null);
 
-		const chitiet = lines
-			.filter((l) => l.MaHH && l.SLXuat > 0)
-			.map((l) => ({
-				MaHH: l.MaHH,
-				SLXuat: l.SLXuat,
-				DonGia: l.DonGia || (products.find((x) => x.MaHH === l.MaHH)?.DonGia || 0),
-			}));
+    const validation = validateForm();
+    if (!validation.valid) {
+      setValidationError(validation.error);
+      return;
+    }
 
-		if (editing) {
-			try {
-				const res = await fetch(`/api/phieu-xuat/${editing.SoPX}`, {
-					method: 'PUT',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ phieu: form, chitiet }),
-					credentials: 'include',
-				});
-				const data = await res.json();
-				if (!res.ok) {
-					setValidationError(data.error || 'Cập nhật thất bại');
-					if (data.insufficientStock) {
-						setInventoryError(data.inventoryErrors || []);
-					}
-					return;
-				}
-				setOpen(false);
-				loadData();
-			} catch (err: any) {
-				setValidationError(err.message || 'Có lỗi xảy ra');
-			}
-		} else {
-			const inventoryCheck = await checkInventory(chitiet);
-			if (!inventoryCheck.sufficient) {
-				setInventoryError(inventoryCheck.errors);
-				return;
-			}
+    const chitiet = lines
+      .filter((l) => l.MaHH && l.SLXuat > 0)
+      .map((l) => ({
+        MaHH: l.MaHH,
+        SLXuat: l.SLXuat,
+        DonGia: l.DonGia || (products.find((x) => x.MaHH === l.MaHH)?.DonGia || 0),
+      }));
 
-			setPendingSubmit({ phieu: form, chitiet });
-			setOpenConfirmModal(true);
-		}
-	}
+    if (editing) {
+      try {
+        const res = await fetch(`/api/phieu-xuat/${editing.SoPX}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phieu: form, chitiet }),
+          credentials: 'include',
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setValidationError(data.error || 'Cập nhật thất bại');
+          if (data.insufficientStock) {
+            setInventoryError(data.inventoryErrors || []);
+          }
+          return;
+        }
+        setOpen(false);
+        loadData();
+      } catch (err: any) {
+        setValidationError(err.message || 'Có lỗi xảy ra');
+      }
+    } else {
+      const inventoryCheck = await checkInventory(chitiet);
+      if (!inventoryCheck.sufficient) {
+        setInventoryError(inventoryCheck.errors);
+        return;
+      }
 
-	async function confirmExport() {
-		if (!pendingSubmit) return;
+      setPendingSubmit({ phieu: form, chitiet });
+      setOpenConfirmModal(true);
+    }
+  }
 
-		try {
-			const res = await fetch('/api/phieu-xuat/create', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(pendingSubmit),
-				credentials: 'include',
-			});
-			const data = await res.json();
-			if (!res.ok) {
-				setValidationError(data.error || 'Tạo phiếu xuất thất bại');
-				if (data.insufficientStock) {
-					setInventoryError(data.inventoryErrors || []);
-				}
-				setOpenConfirmModal(false);
-				return;
-			}
+  async function confirmExport() {
+    if (!pendingSubmit) return;
 
-			setSuccessData(data.data);
-			setOpenConfirmModal(false);
-			setOpen(false);
-			setPendingSubmit(null);
-			setOpenSuccessModal(true);
-			loadData();
-		} catch (err: any) {
-			setValidationError(err.message || 'Có lỗi xảy ra khi tạo phiếu xuất');
-			setOpenConfirmModal(false);
-		}
-	}
+    try {
+      const res = await fetch('/api/phieu-xuat/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(pendingSubmit),
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setValidationError(data.error || 'Tạo phiếu xuất thất bại');
+        if (data.insufficientStock) {
+          setInventoryError(data.inventoryErrors || []);
+        }
+        setOpenConfirmModal(false);
+        return;
+      }
 
-	async function handleDelete(sopx: string) {
-		if (!confirm('Bạn có chắc chắn muốn xóa phiếu xuất này?')) return;
-		setError(null);
+      setSuccessData(data.data);
+      setOpenConfirmModal(false);
+      setOpen(false);
+      setPendingSubmit(null);
+      setOpenSuccessModal(true);
+      loadData();
+    } catch (err: any) {
+      setValidationError(err.message || 'Có lỗi xảy ra khi tạo phiếu xuất');
+      setOpenConfirmModal(false);
+    }
+  }
 
-		try {
-			const res = await fetch(`/api/phieu-xuat/${sopx}`, {
-				method: 'DELETE',
-				credentials: 'include',
-			});
-			const data = await res.json();
-			if (!res.ok) {
-				const appError = handleApiError(data);
-				setError(formatErrorForDisplay(appError));
-				return;
-			}
-			loadData();
-		} catch (err: any) {
-			const appError = handleApiError(err);
-			setError(formatErrorForDisplay(appError));
-		}
-	}
+  async function handleDelete(sopx: string) {
+    if (!confirm('Bạn có chắc chắn muốn xóa phiếu xuất này?')) return;
+    setError(null);
 
-	function handlePrint(sopx: string) {
-		window.open(`/phieu-xuat/print/${sopx}`, '_blank');
-	}
+    try {
+      const res = await fetch(`/api/phieu-xuat/${sopx}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        const appError = handleApiError(data);
+        setError(formatErrorForDisplay(appError));
+        return;
+      }
+      loadData();
+    } catch (err: any) {
+      const appError = handleApiError(err);
+      setError(formatErrorForDisplay(appError));
+    }
+  }
 
-	function handleSend(sopx: string) {
+  function handlePrint(sopx: string) {
+    window.open(`/phieu-xuat/print/${sopx}`, '_blank');
+  }
+
+  function handleSend(sopx: string) {
     alert(`Chức năng gửi thông tin chứng từ cho phiếu ${sopx} đã được kích hoạt.`);
-	}
+  }
 
-	const tongTien = chiTiet.reduce((sum, ct) => sum + parseFloat(ct.TongTien || '0'), 0);
+  const tongTien = chiTiet.reduce((sum, ct) => sum + parseFloat(ct.TongTien || '0'), 0);
   const totalValue = rows.reduce((sum, item) => sum + (item.TongTien || 0), 0);
   const totalItems = rows.reduce((sum, item) => sum + (chiTiet.length), 0);
 
-	return (
+  return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header Section */}
@@ -399,8 +551,8 @@ export default function XuatHangPage() {
             <div>
               <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Phiếu Xuất Hàng</h1>
               <p className="text-gray-600 mt-1">Quản lý xuất hàng cho khách hàng và đối tác</p>
-				</div>
-            
+            </div>
+
             <div className="flex items-center gap-3">
               <Button
                 variant="primary"
@@ -503,51 +655,51 @@ export default function XuatHangPage() {
             <div className="flex-1">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-						<input
+                <input
                   className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                   placeholder="Tìm kiếm theo số PX, mã NV..."
-							value={q}
+                  value={q}
                   onChange={(e) => { setQ(e.target.value); setPage(1); }}
-						/>
-					</div>
+                />
+              </div>
             </div>
 
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-gray-500" />
-						<input
-							type="date"
+                <input
+                  type="date"
                   className="border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-							value={fromDate}
+                  value={fromDate}
                   onChange={(e) => { setFromDate(e.target.value); setPage(1); }}
                   placeholder="Từ ngày"
-						/>
-					</div>
+                />
+              </div>
 
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-gray-500" />
-						<input
-							type="date"
+                <input
+                  type="date"
                   className="border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-							value={toDate}
+                  value={toDate}
                   onChange={(e) => { setToDate(e.target.value); setPage(1); }}
                   placeholder="Đến ngày"
-						/>
-					</div>
+                />
+              </div>
 
               <div className="flex items-center gap-2">
                 <User className="w-4 h-4 text-gray-500" />
-						<select
+                <select
                   className="border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-							value={filterNV}
+                  value={filterNV}
                   onChange={(e) => { setFilterNV(e.target.value); setPage(1); }}
-						>
+                >
                   <option value="">Tất cả NV</option>
-							{nhanVienList.map((nv) => (
-								<option key={nv.MaNV} value={nv.MaNV}>
-									{nv.MaNV} - {nv.HoTen}
-								</option>
-							))}
+                  {nhanVienList.map((nv) => (
+                    <option key={nv.MaNV} value={nv.MaNV}>
+                      {nv.MaNV} - {nv.HoTen}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -559,10 +711,10 @@ export default function XuatHangPage() {
                 <option value={10}>10 / trang</option>
                 <option value={20}>20 / trang</option>
                 <option value={50}>50 / trang</option>
-						</select>
-					</div>
-				</div>
-			</div>
+              </select>
+            </div>
+          </div>
+        </div>
 
         {/* Table */}
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -588,9 +740,9 @@ export default function XuatHangPage() {
                   <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
                     Hành động
                   </th>
-						</tr>
-					</thead>
-              
+                </tr>
+              </thead>
+
               <tbody className="bg-white divide-y divide-gray-200">
                 {loading ? (
                   Array.from({ length: 8 }).map((_, i) => (
@@ -615,50 +767,51 @@ export default function XuatHangPage() {
                           <p className="text-gray-500 text-sm mt-1">Thử thay đổi từ khóa tìm kiếm hoặc bộ lọc</p>
                         </div>
                       </div>
-										</td>
-								</tr>
+                    </td>
+                  </tr>
                 ) : (
                   rows.map((item) => (
-								<tr 
-                      key={item.SoPX} 
+                    <tr
+                      key={item.SoPX}
                       className="hover:bg-gray-50 transition-colors cursor-pointer"
                       onClick={() => openDetailModal(item.SoPX)}
-								>
+                    >
                       <td className="px-6 py-4">
                         <div className="font-medium text-gray-900">{item.SoPX}</div>
-									</td>
-                      
+                      </td>
+
                       <td className="px-6 py-4">
                         <div className="text-sm text-gray-700">
-                          {item.NgayXuat ? formatVietnamDate(item.NgayXuat) : '-'}
+                          {item.NgayXuat ? formatVietnamDateTime(item.NgayXuat) : '-'}
                         </div>
                       </td>
-                      
+
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
                           <User className="w-4 h-4 text-gray-400" />
-                          <span className="text-gray-700">{item.MaNV || '-'}</span>
+                          <span className="text-gray-700">
+                            {item.MaNV ? (nvMap[item.MaNV] || item.MaNV) : '-'}
+                          </span>
                         </div>
                       </td>
-                      
+
                       <td className="px-6 py-4">
                         <div className="font-semibold text-gray-900">
                           {(item.TongTien || 0).toLocaleString('vi-VN')} ₫
                         </div>
                       </td>
-                      
+
                       <td className="px-6 py-4">
-                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
-                          item.TrangThai === 'Hoàn thành' 
+                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${item.TrangThai === 'Hoàn thành'
                             ? 'bg-green-100 text-green-800'
                             : item.TrangThai === 'Đang xử lý'
-                            ? 'bg-blue-100 text-blue-800'
-                            : 'bg-gray-100 text-gray-800'
-                        }`}>
+                              ? 'bg-blue-100 text-blue-800'
+                              : 'bg-gray-100 text-gray-800'
+                          }`}>
                           {item.TrangThai || 'Đang xử lý'}
                         </span>
                       </td>
-                      
+
                       <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-2">
                           <button
@@ -668,7 +821,7 @@ export default function XuatHangPage() {
                           >
                             <Eye className="w-4 h-4" />
                           </button>
-                          
+
                           <button
                             onClick={() => openEditModal(item)}
                             className="p-1.5 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
@@ -676,7 +829,7 @@ export default function XuatHangPage() {
                           >
                             <Edit3 className="w-4 h-4" />
                           </button>
-                          
+
                           <button
                             onClick={() => handlePrint(item.SoPX)}
                             className="p-1.5 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
@@ -684,7 +837,7 @@ export default function XuatHangPage() {
                           >
                             <Printer className="w-4 h-4" />
                           </button>
-                          
+
                           <button
                             onClick={() => handleDelete(item.SoPX)}
                             className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
@@ -693,14 +846,14 @@ export default function XuatHangPage() {
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
-								</td>
-							</tr>
+                      </td>
+                    </tr>
                   ))
-						)}
-					</tbody>
-				</table>
+                )}
+              </tbody>
+            </table>
           </div>
-			</div>
+        </div>
 
         {/* Pagination */}
         <div className="mt-6">
@@ -710,86 +863,86 @@ export default function XuatHangPage() {
               <span className="font-medium">{Math.min(page * limit, total)}</span> trong{' '}
               <span className="font-medium">{total}</span> phiếu xuất
             </div>
-            
-				<Pagination page={page} limit={limit} total={total} onChange={setPage} />
+
+            <Pagination page={page} limit={limit} total={total} onChange={setPage} />
           </div>
         </div>
-			</div>
+      </div>
 
       {/* Create/Edit Modal */}
       <Modal
         open={open}
         onClose={() => {
-				setOpen(false);
-				setValidationError(null);
-				setInventoryError(null);
+          setOpen(false);
+          setValidationError(null);
+          setInventoryError(null);
         }}
         title={editing ? 'Chỉnh sửa phiếu xuất' : 'Tạo phiếu xuất mới'}
         className="max-w-4xl"
       >
         <form onSubmit={handleSubmit} className="space-y-6">
-					{validationError && (
-						<div className="bg-red-50 border border-red-200 p-4 rounded-lg">
-							<div className="flex items-center gap-2 text-red-800 font-medium mb-2">
-								<AlertTriangle className="w-5 h-5" />
-								Lỗi dữ liệu nhập vào
-							</div>
-							<p className="text-sm text-red-700">{validationError}</p>
-						</div>
-					)}
+          {validationError && (
+            <div className="bg-red-50 border border-red-200 p-4 rounded-lg">
+              <div className="flex items-center gap-2 text-red-800 font-medium mb-2">
+                <AlertTriangle className="w-5 h-5" />
+                Lỗi dữ liệu nhập vào
+              </div>
+              <p className="text-sm text-red-700">{validationError}</p>
+            </div>
+          )}
 
-					{inventoryError && Array.isArray(inventoryError) && inventoryError.length > 0 && (
-						<div className="bg-amber-50 border border-amber-200 p-4 rounded-lg">
-							<div className="flex items-center gap-2 text-amber-800 font-medium mb-2">
+          {inventoryError && Array.isArray(inventoryError) && inventoryError.length > 0 && (
+            <div className="bg-amber-50 border border-amber-200 p-4 rounded-lg">
+              <div className="flex items-center gap-2 text-amber-800 font-medium mb-2">
                 <AlertTriangle className="w-5 h-5" />
                 Không đủ hàng trong kho
-							</div>
+              </div>
               <div className="text-sm text-amber-700 space-y-2">
-								{inventoryError.map((err: any, i: number) => (
+                {inventoryError.map((err: any, i: number) => (
                   <div key={i} className="flex items-center justify-between">
                     <span>{err.TenHH ? `${err.TenHH} (${err.MaHH})` : err.MaHH}</span>
                     <span className="font-medium">
                       Tồn: {err.SoLuongTon || 0} &lt; Xuất: {err.SLXuat || 0}
                     </span>
                   </div>
-								))}
-							</div>
-						</div>
-					)}
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Basic Info */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-						<div>
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 Ngày xuất *
               </label>
-							<input
-								type="date"
+              <input
+                type="datetime-local"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-								value={form.NgayXuat}
-								onChange={(e) => setForm({ ...form, NgayXuat: e.target.value })}
+                value={form.NgayXuat}
+                onChange={(e) => setForm({ ...form, NgayXuat: e.target.value })}
                 required
-							/>
-						</div>
-            
-						<div>
+              />
+            </div>
+
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 Nhân viên *
               </label>
-							<select
+              <select
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-								value={form.MaNV}
-								onChange={(e) => setForm({ ...form, MaNV: e.target.value })}
+                value={form.MaNV}
+                onChange={(e) => setForm({ ...form, MaNV: e.target.value })}
                 required
-							>
+              >
                 <option value="">Chọn nhân viên</option>
-								{nhanVienList.map((nv) => (
-									<option key={nv.MaNV} value={nv.MaNV}>
-										{nv.MaNV} - {nv.HoTen}
-									</option>
-								))}
-							</select>
-						</div>
+                {nhanVienList.map((nv) => (
+                  <option key={nv.MaNV} value={nv.MaNV}>
+                    {nv.MaNV} - {nv.HoTen}
+                  </option>
+                ))}
+              </select>
+            </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
@@ -810,28 +963,43 @@ export default function XuatHangPage() {
               <p className="text-xs text-gray-500 mt-1">
                 Nếu chọn khách hàng, hệ thống sẽ tự động tạo hóa đơn sau khi tạo phiếu xuất
               </p>
-					</div>
+            </div>
           </div>
 
           {/* Product Lines */}
           <div className="border border-gray-200 rounded-lg overflow-hidden">
             <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <h3 className="font-semibold text-gray-800">Chi tiết hàng hóa xuất</h3>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => setLines((prev) => [...prev, { MaHH: '', SLXuat: 1, DonGia: 0 }])}
-                >
-                  <Plus className="w-4 h-4 mr-1" />
-                  Thêm hàng
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => setLines((prev) => [...prev, { MaHH: '', SLXuat: 1, DonGia: 0 }])}
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    Thêm hàng
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="primary"
+                    onClick={() => {
+                      setScanError(null);
+                      setScannerKey((k) => k + 1); // reset scanner instance
+                      setShowScanner(true);
+                    }}
+                    className="flex items-center gap-2"
+                  >
+                    <Barcode className="w-4 h-4" />
+                    Quét mã
+                  </Button>
+                </div>
               </div>
             </div>
-            
+
             <div className="overflow-x-auto">
               <table className="w-full">
-							<thead>
+                <thead>
                   <tr className="bg-gray-100 border-b border-gray-200">
                     <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600">STT</th>
                     <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600">Hàng hóa *</th>
@@ -840,67 +1008,65 @@ export default function XuatHangPage() {
                     <th className="px-4 py-2 text-right text-xs font-semibold text-gray-600">Đơn giá *</th>
                     <th className="px-4 py-2 text-right text-xs font-semibold text-gray-600">Thành tiền</th>
                     <th className="px-4 py-2 text-right text-xs font-semibold text-gray-600">Thao tác</th>
-								</tr>
-							</thead>
-							<tbody>
+                  </tr>
+                </thead>
+                <tbody>
                   {lines.map((line, index) => {
                     const product = products.find(p => p.MaHH === line.MaHH);
                     const stock = product?.SoLuongTon || 0;
                     const total = (line.SLXuat || 0) * (line.DonGia || 0);
                     const insufficientStock = line.MaHH && (line.SLXuat || 0) > stock;
-                    
-									return (
+
+                    return (
                       <tr key={index} className="border-b border-gray-200 hover:bg-gray-50">
                         <td className="px-4 py-3 text-sm text-gray-600">{index + 1}</td>
                         <td className="px-4 py-3">
-												<select
-                            className={`w-full px-2 py-1.5 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none ${
-                              insufficientStock ? 'border-red-300' : 'border-gray-300'
-                            }`}
+                          <select
+                            className={`w-full px-2 py-1.5 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none ${insufficientStock ? 'border-red-300' : 'border-gray-300'
+                              }`}
                             value={line.MaHH}
-													onChange={(e) => {
+                            onChange={(e) => {
                               const selected = products.find(p => p.MaHH === e.target.value);
-                              setLine(index, { 
-                                MaHH: e.target.value, 
-                                DonGia: selected?.DonGia || 0 
+                              setLine(index, {
+                                MaHH: e.target.value,
+                                DonGia: selected?.DonGia || 0
                               });
-													}}
-												>
+                            }}
+                          >
                             <option value="">Chọn hàng hóa</option>
                             {products.map((product) => (
                               <option key={product.MaHH} value={product.MaHH}>
                                 {product.MaHH} - {product.TenHH}
-														</option>
-													))}
-												</select>
-											</td>
+                              </option>
+                            ))}
+                          </select>
+                        </td>
                         <td className="px-4 py-3 text-right">
                           <span className={`text-sm ${insufficientStock ? 'text-red-600 font-medium' : 'text-gray-600'}`}>
                             {stock}
                           </span>
-											</td>
+                        </td>
                         <td className="px-4 py-3">
-												<input
-													type="number"
+                          <input
+                            type="number"
                             min="1"
                             max={stock}
-                            className={`w-24 px-2 py-1.5 border rounded text-right focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none ml-auto ${
-                              insufficientStock ? 'border-red-500 bg-red-50' : 'border-gray-300'
-                            }`}
+                            className={`w-24 px-2 py-1.5 border rounded text-right focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none ml-auto ${insufficientStock ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                              }`}
                             value={line.SLXuat}
                             onChange={(e) => setLine(index, { SLXuat: Number(e.target.value) })}
-												/>
-											</td>
+                          />
+                        </td>
                         <td className="px-4 py-3">
-												<input
-													type="number"
+                          <input
+                            type="number"
                             min="0"
                             step="1000"
                             className="w-32 px-2 py-1.5 border border-gray-300 rounded text-right focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none ml-auto"
                             value={line.DonGia}
                             onChange={(e) => setLine(index, { DonGia: Number(e.target.value) })}
-												/>
-											</td>
+                          />
+                        </td>
                         <td className="px-4 py-3 text-right font-medium text-gray-900">
                           {total.toLocaleString('vi-VN')} ₫
                         </td>
@@ -912,19 +1078,19 @@ export default function XuatHangPage() {
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
-											</td>
-										</tr>
-									);
-								})}
-							</tbody>
-						</table>
-						</div>
-            
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
             <div className="bg-gray-50 px-4 py-3 border-t border-gray-200">
               <div className="flex items-center justify-between">
                 <div className="text-sm text-gray-600">
                   Tổng cộng: {lines.filter(l => l.MaHH).length} sản phẩm
-					</div>
+                </div>
                 <div className="text-lg font-semibold text-gray-900">
                   Tổng tiền: {lines
                     .filter(l => l.MaHH)
@@ -941,19 +1107,15 @@ export default function XuatHangPage() {
               type="button"
               variant="secondary"
               onClick={() => {
-							setOpen(false);
-							setValidationError(null);
-							setInventoryError(null);
+                setOpen(false);
+                setValidationError(null);
+                setInventoryError(null);
               }}
             >
               Hủy
-						</Button>
-            
-            <Button
-              type="submit"
-              variant="primary"
-              disabled={lines.filter(l => l.MaHH).length === 0}
-            >
+            </Button>
+
+            <Button type="submit" variant="primary" disabled={lines.filter(l => l.MaHH).length === 0}>
               {editing ? (
                 <>
                   <Edit3 className="w-4 h-4 mr-2" />
@@ -966,103 +1128,190 @@ export default function XuatHangPage() {
                 </>
               )}
             </Button>
-					</div>
-				</form>
-			</Modal>
+          </div>
+          {scanError && (
+            <div className="px-4 py-2 text-sm text-red-700 bg-red-50 border-t border-red-200">
+              {scanError}
+            </div>
+          )}
+        </form>
+      </Modal>
+      {/* Scanner Modal */}
+      <BarcodeScanner
+        key={scannerKey}
+        open={showScanner}
+        onClose={() => setShowScanner(false)}
+        onScan={handleBarcodeScanned}
+      />
 
       {/* Detail Modal */}
       <Modal
         open={detailOpen}
         onClose={() => setDetailOpen(false)}
         title={`Chi tiết phiếu xuất ${selectedPX}`}
-        className="max-w-3xl"
+        className="max-w-4xl"
       >
         <div className="space-y-6">
-          {/* Basic Info */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <div className="grid grid-cols-2 gap-4">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6 rounded-xl -mt-6 -mx-6 mb-6">
+            <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-blue-700 mb-1">Số phiếu xuất</p>
-                <p className="font-semibold text-blue-900">{selectedPX}</p>
+                <h2 className="text-2xl font-bold">Phiếu xuất #{selectedPX}</h2>
+                <p className="text-blue-100/80 mt-1">Chi tiết hàng hóa đã xuất</p>
+              </div>
+              <div className="text-right">
+                <div className="text-sm text-blue-100/80 mb-1">Ngày xuất</div>
+                <div className="text-lg font-semibold">
+                  {rows.find(r => r.SoPX === selectedPX)?.NgayXuat 
+                    ? formatVietnamDateTime(rows.find(r => r.SoPX === selectedPX)!.NgayXuat!)
+                    : '-'}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Info Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-start gap-3">
+              <div className="p-2 bg-blue-50 rounded-lg">
+                <User className="w-5 h-5 text-blue-600" />
               </div>
               <div>
-                <p className="text-sm text-blue-700 mb-1">Ngày xuất</p>
-                <p className="font-semibold text-blue-900">
-                  {chiTiet.length > 0 && rows.find(r => r.SoPX === selectedPX)?.NgayXuat 
-                    ? formatVietnamDate(rows.find(r => r.SoPX === selectedPX)!.NgayXuat!)
-                    : '-'}
-                </p>
-							</div>
-              <div>
-                <p className="text-sm text-blue-700 mb-1">Nhân viên</p>
-                <p className="font-semibold text-blue-900">
+                <div className="text-sm text-gray-500">Nhân viên</div>
+                <div className="font-semibold text-gray-900">
                   {rows.find(r => r.SoPX === selectedPX)?.MaNV || '-'}
-                </p>
-						</div>
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  {rows.find(r => r.SoPX === selectedPX)?.MaNV || ''}
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-start gap-3">
+              <div className="p-2 bg-green-50 rounded-lg">
+                <Package className="w-5 h-5 text-green-600" />
+              </div>
               <div>
-                <p className="text-sm text-blue-700 mb-1">Tổng tiền</p>
-                <p className="font-semibold text-blue-900">
+                <div className="text-sm text-gray-500">Số phiếu</div>
+                <div className="font-semibold text-gray-900">{selectedPX || '-'}</div>
+                <div className="text-xs text-gray-500 mt-1">Trạng thái: {rows.find(r => r.SoPX === selectedPX)?.TrangThai || '---'}</div>
+              </div>
+            </div>
+
+            <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-start gap-3">
+              <div className="p-2 bg-purple-50 rounded-lg">
+                <DollarSign className="w-5 h-5 text-purple-600" />
+              </div>
+              <div>
+                <div className="text-sm text-gray-500">Tổng tiền</div>
+                <div className="text-xl font-bold text-gray-900">
                   {tongTien.toLocaleString('vi-VN')} ₫
-                </p>
+                </div>
               </div>
             </div>
           </div>
 
           {/* Product Details */}
-          <div>
-            <h3 className="font-semibold text-gray-800 mb-3">Danh sách hàng hóa xuất</h3>
-            <div className="border border-gray-200 rounded-lg overflow-hidden">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">STT</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Mã HH</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Tên hàng hóa</th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600">Số lượng</th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600">Đơn giá</th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600">Thành tiền</th>
-										</tr>
-									</thead>
-                <tbody className="divide-y divide-gray-200">
+          <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden transition-all duration-300 hover:shadow-xl">
+            {/* Header */}
+            <div className="px-6 py-5 border-b border-gray-100 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-indigo-50 rounded-lg text-indigo-600">
+                  <Package size={24} strokeWidth={1.5} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-800 text-lg">Chi tiết đơn hàng</h3>
+                  <div className="flex items-center gap-2 text-sm text-gray-500 mt-0.5">
+                    <span className="flex items-center gap-1">
+                      <Tag size={14} /> {chiTiet.length} sản phẩm
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div className="hidden sm:flex flex-col items-end">
+                <span className="text-xs text-gray-400 uppercase font-semibold tracking-wider">Tổng giá trị</span>
+                <span className="text-xl font-bold text-indigo-600 font-mono">
+                  {tongTien.toLocaleString('vi-VN')} ₫
+                </span>
+              </div>
+            </div>
+
+            {/* Table */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-gray-50/50 border-b border-gray-100">
+                    <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider w-12">STT</th>
+                    <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Sản phẩm</th>
+                    <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Đơn giá</th>
+                    <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">SL</th>
+                    <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Thành tiền</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
                   {chiTiet.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                      <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
                         Không có dữ liệu chi tiết
-													</td>
-												</tr>
+                      </td>
+                    </tr>
                   ) : (
-                    chiTiet.map((ct, index) => (
-                      <tr key={ct.MaHH} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 text-sm text-gray-600">{index + 1}</td>
-                        <td className="px-4 py-3 font-medium text-gray-900">{ct.MaHH}</td>
-                        <td className="px-4 py-3 text-gray-700">{ct.TenHH || '-'}</td>
-                        <td className="px-4 py-3 text-right text-gray-900">{ct.SLXuat}</td>
-                        <td className="px-4 py-3 text-right text-gray-900">
-                          {parseInt(ct.DonGia.toString()).toLocaleString('vi-VN')} ₫
+                    chiTiet.map((item, index) => (
+                      <tr 
+                        key={index} 
+                        className="group hover:bg-indigo-50/30 transition-colors duration-200"
+                      >
+                        <td className="px-6 py-4 text-sm text-gray-400 font-medium group-hover:text-indigo-500">
+                          {String(index + 1).padStart(2, '0')}
                         </td>
-                        <td className="px-4 py-3 text-right font-semibold text-gray-900">
-                          {parseFloat(ct.TongTien).toLocaleString('vi-VN')} ₫
+                        <td className="px-6 py-4">
+                          <div className="flex flex-col">
+                            <span className="text-sm font-semibold text-gray-800 group-hover:text-indigo-700 transition-colors">
+                              {item.TenHH || 'Sản phẩm chưa đặt tên'}
+                            </span>
+                            <span className="text-xs text-gray-400 font-mono mt-0.5">
+                              Mã: {item.MaHH}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-600 text-right font-medium">
+                          {Number(item.DonGia).toLocaleString('vi-VN')}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-800 text-right">
+                          <span className="inline-block px-2.5 py-0.5 rounded-md bg-gray-100 text-gray-700 font-medium text-xs">
+                            x{item.SLXuat}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-sm font-bold text-gray-900 text-right">
+                          {Number(item.TongTien).toLocaleString('vi-VN')} ₫
                         </td>
                       </tr>
                     ))
                   )}
-									</tbody>
-                <tfoot className="bg-gray-50">
-                  <tr>
-                    <td colSpan={5} className="px-4 py-3 text-right font-semibold text-gray-900">
-                      Tổng cộng:
-                    </td>
-                    <td className="px-4 py-3 text-right font-bold text-gray-900">
-                      {tongTien.toLocaleString('vi-VN')} ₫
-                    </td>
-                  </tr>
-                </tfoot>
-								</table>
-							</div>
-						</div>
+                </tbody>
+              </table>
+            </div>
+
+            {/* Footer summary */}
+            <div className="bg-gray-50 px-6 py-5 border-t border-gray-100">
+              <div className="flex flex-col sm:flex-row justify-end items-end sm:items-center gap-4 sm:gap-12">
+                <div className="text-right">
+                  <p className="text-sm text-gray-500 mb-1">Số lượng mặt hàng</p>
+                  <p className="text-base font-medium text-gray-800">{chiTiet.length}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm text-gray-500 mb-1">Tổng cộng</p>
+                  <div className="flex items-center justify-end gap-2 text-2xl font-bold text-indigo-600">
+                    <Calculator size={20} className="mb-1 opacity-50" />
+                    {tongTien.toLocaleString('vi-VN')} ₫
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
 
           {/* Action Buttons */}
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
+          <div className="flex items-center justify-end gap-3 pt-6 border-t border-gray-200">
             <Button
               variant="secondary"
               onClick={() => selectedPX && handlePrint(selectedPX)}
@@ -1070,7 +1319,7 @@ export default function XuatHangPage() {
             >
               <Printer className="w-4 h-4" />
               In phiếu
-							</Button>
+            </Button>
             <Button
               variant="primary"
               onClick={() => selectedPX && handleSend(selectedPX)}
@@ -1078,10 +1327,10 @@ export default function XuatHangPage() {
             >
               <Send className="w-4 h-4" />
               Gửi chứng từ
-							</Button>
-						</div>
-					</div>
-			</Modal>
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Confirmation Modal */}
       <Modal
@@ -1090,52 +1339,52 @@ export default function XuatHangPage() {
         title="Xác nhận xuất hàng"
         className="max-w-2xl"
       >
-					<div className="space-y-4">
+        <div className="space-y-4">
           <div className="flex items-center justify-center">
             <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
               <Package className="w-6 h-6 text-blue-600" />
             </div>
-						</div>
+          </div>
 
           <div className="text-center">
             <h3 className="text-lg font-semibold text-gray-900 mb-2">
               Xác nhận tạo phiếu xuất hàng
             </h3>
             <p className="text-gray-600">
-              Hệ thống sẽ trừ số lượng hàng hóa từ kho và tạo phiếu xuất mới. 
+              Hệ thống sẽ trừ số lượng hàng hóa từ kho và tạo phiếu xuất mới.
               Bạn có chắc chắn muốn thực hiện thao tác này?
             </p>
           </div>
-          
+
           {pendingSubmit && (
-						<div className="bg-gray-50 p-4 rounded-lg">
+            <div className="bg-gray-50 p-4 rounded-lg">
               <div className="space-y-2">
-								<div className="flex justify-between">
+                <div className="flex justify-between">
                   <span className="text-gray-600">Ngày xuất:</span>
                   <span className="font-medium">{pendingSubmit.phieu.NgayXuat}</span>
-								</div>
-								<div className="flex justify-between">
+                </div>
+                <div className="flex justify-between">
                   <span className="text-gray-600">Nhân viên:</span>
                   <span className="font-medium">{pendingSubmit.phieu.MaNV}</span>
-								</div>
+                </div>
                 {pendingSubmit.phieu.MaKH && (
-								<div className="flex justify-between">
+                  <div className="flex justify-between">
                     <span className="text-gray-600">Khách hàng:</span>
                     <span className="font-medium text-blue-600">
                       {customerOptions.find(kh => kh.MaKH === pendingSubmit.phieu.MaKH)?.TenKH || pendingSubmit.phieu.MaKH}
                     </span>
-								</div>
+                  </div>
                 )}
                 <div className="flex justify-between">
                   <span className="text-gray-600">Số mặt hàng:</span>
                   <span className="font-medium">{pendingSubmit.chitiet.length}</span>
-							</div>
+                </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Tổng số lượng:</span>
                   <span className="font-medium">
                     {pendingSubmit.chitiet.reduce((sum, ct) => sum + ct.SLXuat, 0)}
                   </span>
-						</div>
+                </div>
                 <div className="flex justify-between border-t border-gray-200 pt-2">
                   <span className="text-gray-600">Tổng tiền:</span>
                   <span className="font-bold text-lg">
@@ -1154,9 +1403,9 @@ export default function XuatHangPage() {
                     </div>
                   </div>
                 )}
-								</div>
-							</div>
-						)}
+              </div>
+            </div>
+          )}
 
           <div className="flex items-center justify-end gap-3 pt-4">
             <Button
@@ -1172,10 +1421,10 @@ export default function XuatHangPage() {
             >
               <Check className="w-4 h-4" />
               Xác nhận xuất hàng
-							</Button>
-						</div>
-					</div>
-			</Modal>
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Success Modal */}
       <Modal
@@ -1188,9 +1437,9 @@ export default function XuatHangPage() {
           <div className="flex items-center justify-center">
             <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
               <CheckCircle className="w-6 h-6 text-green-600" />
-							</div>
-							</div>
-          
+            </div>
+          </div>
+
           <div className="text-center">
             <h3 className="text-lg font-semibold text-gray-900 mb-2">
               Phiếu xuất hàng đã được tạo thành công!
@@ -1198,7 +1447,7 @@ export default function XuatHangPage() {
             <p className="text-gray-600">
               Số lượng hàng hóa đã được trừ kho và phiếu xuất đã được lưu vào hệ thống.
             </p>
-					</div>
+          </div>
 
           {successData && (
             <div className="bg-green-50 border border-green-200 p-4 rounded-lg">
@@ -1206,41 +1455,41 @@ export default function XuatHangPage() {
                 <div className="flex justify-between">
                   <span className="text-green-700">Số phiếu:</span>
                   <span className="font-bold text-green-900">{successData.SoPX}</span>
-							</div>
+                </div>
                 <div className="flex justify-between">
                   <span className="text-green-700">Ngày tạo:</span>
                   <span className="font-medium text-green-900">
                     {formatVietnamDate(successData.NgayXuat)}
                   </span>
-						</div>
+                </div>
                 <div className="flex justify-between">
                   <span className="text-green-700">Tổng tiền:</span>
                   <span className="font-bold text-green-900">
                     {(successData.TongTien || 0).toLocaleString('vi-VN')} ₫
                   </span>
-					</div>
+                </div>
                 {successData.MaHD && (
                   <div className="mt-3 pt-3 border-t border-green-300">
                     <div className="flex justify-between items-center">
                       <span className="text-green-700 font-medium">Hóa đơn đã tạo:</span>
                       <span className="font-bold text-green-900 text-lg">{successData.MaHD}</span>
-							</div>
+                    </div>
                     <p className="text-xs text-green-600 mt-1">
                       Hóa đơn đã được tự động tạo và liên kết với phiếu xuất này
                     </p>
-							</div>
+                  </div>
                 )}
-						</div>
-						</div>
-					)}
+              </div>
+            </div>
+          )}
 
           <div className="flex items-center justify-center gap-3 pt-4">
             <Button
               variant="secondary"
               onClick={() => setOpenSuccessModal(false)}
             >
-							Đóng
-						</Button>
+              Đóng
+            </Button>
             {successData && (
               <Button
                 variant="primary"
@@ -1249,11 +1498,11 @@ export default function XuatHangPage() {
               >
                 <Printer className="w-4 h-4" />
                 In phiếu ngay
-						</Button>
+              </Button>
             )}
-					</div>
-				</div>
-			</Modal>
-		</div>
-	);
+          </div>
+        </div>
+      </Modal>
+    </div>
+  );
 }

@@ -69,7 +69,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
 		const supabase = getServerSupabase();
 
-		// Lấy dữ liệu cũ để log
+		// Lấy dữ liệu cũ để log + chi tiết cũ để tính chênh lệch tồn
 		const { data: oldPhieu } = await supabase
 			.from('phieunhap')
 			.select('*')
@@ -78,6 +78,24 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
 		if (!oldPhieu) {
 			return NextResponse.json({ error: 'Phiếu nhập không tồn tại' }, { status: 404 });
+		}
+		const { data: oldDetails } = await supabase
+			.from('ctphieunhap')
+			.select('mahh, slnhap')
+			.eq('sopn', sopn);
+
+		// Kiểm tra hóa đơn liên kết để chặn sửa nếu đã thanh toán
+		const { data: invoiceStatus } = await supabase
+			.from('hoadon')
+			.select('mahd, trangthai')
+			.eq('sopn', sopn)
+			.maybeSingle();
+
+		if (invoiceStatus?.trangthai === 'Đã thanh toán') {
+			return NextResponse.json(
+				{ error: 'Phiếu nhập này đã hoàn tất thanh toán. Vui lòng hủy/hoàn tác phiếu chi trước khi sửa nội dung.' },
+				{ status: 400 }
+			);
 		}
 
 		// Cập nhật phiếu nhập
@@ -111,6 +129,53 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 						tongtien: (row.SLNhap || 0) * (row.DGNhap || 0),
 					},
 				]);
+			}
+		}
+
+		// Tính chênh lệch tồn kho theo từng mã hàng
+		const oldMap = new Map<string, number>();
+		for (const ct of oldDetails || []) {
+			oldMap.set(ct.mahh, (ct.slnhap || 0) + (oldMap.get(ct.mahh) || 0));
+		}
+		const newMap = new Map<string, number>();
+		if (chitiet && Array.isArray(chitiet)) {
+			for (const ct of chitiet) {
+				newMap.set(ct.MaHH, (ct.SLNhap || 0) + (newMap.get(ct.MaHH) || 0));
+			}
+		}
+		const allKeys = new Set<string>([...oldMap.keys(), ...newMap.keys()]);
+		for (const key of allKeys) {
+			const delta = (newMap.get(key) || 0) - (oldMap.get(key) || 0);
+			if (!delta) continue;
+			const { data: cur } = await supabase.from('hanghoa').select('soluongton').eq('mahh', key).maybeSingle();
+			const current = (cur?.soluongton || 0) + delta;
+			await supabase.from('hanghoa').update({ soluongton: current }).eq('mahh', key);
+		}
+
+		// Cập nhật hóa đơn liên kết (nếu có)
+		const tongTienMoi = (chitiet || []).reduce((s: number, r: any) => s + Number(r.SLNhap || 0) * Number(r.DGNhap || 0), 0);
+		const { data: invoice } = await supabase.from('hoadon').select('mahd').eq('sopn', sopn).maybeSingle();
+		if (invoice?.mahd) {
+			await supabase
+				.from('hoadon')
+				.update({
+					tongtien: tongTienMoi,
+					ngaylap: phieu?.NgayNhap ?? updatedPhieu?.ngaynhap ?? null,
+					manv: phieu?.MaNV ?? updatedPhieu?.manv ?? null,
+				})
+				.eq('mahd', invoice.mahd);
+
+			// Cập nhật chi tiết hóa đơn
+			await supabase.from('ct_hoadon').delete().eq('mahd', invoice.mahd);
+			const ctHoaDon = (chitiet || []).map((r: any) => ({
+				mahd: invoice.mahd,
+				mahh: r.MaHH,
+				soluong: r.SLNhap,
+				dongia: r.DGNhap,
+				tongtien: Number(r.SLNhap || 0) * Number(r.DGNhap || 0),
+			}));
+			if (ctHoaDon.length > 0) {
+				await supabase.from('ct_hoadon').insert(ctHoaDon);
 			}
 		}
 

@@ -49,49 +49,66 @@ export default function LoginPage() {
 	}
 
 	return (
-		<div className="min-h-screen flex items-center justify-center text-[#4e3c33]">
-			<div className="w-full max-w-md bg-white rounded-2xl shadow-lg border border-[#f5ebe0] p-8">
-				<div className="text-center mb-6">
-					<div className="mx-auto h-12 w-12 rounded-xl bg-gradient-to-tr from-[#e08d86] to-[#f3bca9] flex items-center justify-center text-white font-bold shadow-md">
-						K
+		<div className="min-h-screen bg-gradient-to-br from-[#f2f4fb] via-[#e6ebf7] to-[#dbe1f0] flex items-center justify-center px-4">
+			<div className="w-full max-w-sm bg-[#eef1f8]/85 backdrop-blur-xl rounded-[32px] shadow-[24px_24px_48px_-28px_rgba(79,90,119,0.45),-18px_-18px_36px_rgba(255,255,255,0.9)] border border-white/60 px-8 py-10">
+				<div className="text-center mb-9">
+					<div className="mx-auto h-12 w-12 rounded-full bg-white shadow-[10px_10px_24px_rgba(150,167,198,0.4),-10px_-10px_24px_rgba(255,255,255,0.95)] flex items-center justify-center text-[#6b7aa6] text-xl">
+						<span className="i-ph-user"></span>
 					</div>
-					<h1 className="mt-3 text-2xl font-semibold text-[#d47b8a]">Đăng nhập hệ thống</h1>
-					<p className="text-sm text-[#9c8579] mt-1">Hệ thống quản lý kho hàng</p>
+					<h1 className="mt-4 text-2xl font-semibold text-[#3d4766]">Welcome back</h1>
+					<p className="text-sm text-[#7681a6] mt-1">Please sign in to continue</p>
 				</div>
 
 				<form onSubmit={handleLogin} className="space-y-5">
-					<div>
-						<label className="block text-sm mb-1 text-gray-500">Email</label>
+					<div className="space-y-2">
+						<label className="block text-sm text-[#6b7aa6]">Email address</label>
 						<input
 							type="email"
-							className="w-full bg-[#fce7ec] border border-[#f9dfe3] rounded-xl px-3 py-2 text-gray-800 focus:ring-2 focus:ring-[#d47b8a] outline-none transition"
+							className="w-full rounded-2xl bg-[#eef1f8] text-[#3d4766] px-4 py-3 shadow-[8px_8px_18px_rgba(150,167,198,0.25),-8px_-8px_18px_rgba(255,255,255,0.9)] border border-transparent focus:border-[#9fb4ff] focus:outline-none focus:ring-2 focus:ring-[#cfd8ff]"
 							value={username}
 							onChange={(e) => setUsername(e.target.value)}
 							required
-							placeholder="Nhập email..."
+							placeholder="Email address"
 						/>
 					</div>
-					<div>
-						<label className="block text-sm mb-1 text-gray-500">Mật khẩu</label>
-						<input type="password" className="w-full bg-[#fce7ec] border border-[#f9dfe3] rounded-xl px-3 py-2 text-gray-800 focus:ring-2 focus:ring-[#d47b8a] outline-none transition" value={password} onChange={(e) => setPassword(e.target.value)} required placeholder="Nhập mật khẩu..." />
+					<div className="space-y-2">
+						<label className="block text-sm text-[#6b7aa6]">Password</label>
+						<input
+							type="password"
+							className="w-full rounded-2xl bg-[#eef1f8] text-[#3d4766] px-4 py-3 shadow-[8px_8px_18px_rgba(150,167,198,0.25),-8px_-8px_18px_rgba(255,255,255,0.9)] border border-transparent focus:border-[#9fb4ff] focus:outline-none focus:ring-2 focus:ring-[#cfd8ff]"
+							value={password}
+							onChange={(e) => setPassword(e.target.value)}
+							required
+							placeholder="Password"
+						/>
 					</div>
+
 					{error && (
-						<div className={`p-3 rounded-xl text-sm text-center ${
-							error.includes('giờ làm việc') || error.includes('hoạt động')
-								? 'bg-amber-50 border border-amber-200 text-amber-800'
-								: 'bg-red-50 border border-red-200 text-red-600'
-						}`}>
+						<div
+							className={`p-3 rounded-2xl text-sm text-center ${
+								error.includes('giờ làm việc') || error.includes('hoạt động')
+									? 'bg-amber-50 border border-amber-200 text-amber-800'
+									: 'bg-red-50 border border-red-200 text-red-600'
+							}`}
+						>
 							{error}
 						</div>
 					)}
-					<button type="submit" className="w-full bg-gradient-to-r from-[#e08d86] to-[#f3b8a8] text-white font-medium rounded-xl py-2 hover:brightness-105 transition disabled:opacity-60" disabled={loading}>
-						{loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
+
+					<button
+						type="submit"
+						className="w-full rounded-2xl bg-[#e9edf5] text-[#3d4766] font-semibold py-3 shadow-[10px_10px_22px_rgba(146,163,184,0.27),-10px_-10px_22px_rgba(255,255,255,0.95)] hover:shadow-[14px_14px_26px_rgba(146,163,184,0.30),-12px_-12px_22px_rgba(255,255,255,0.97)] transition disabled:opacity-60"
+						disabled={loading}
+					>
+						{loading ? 'Đang đăng nhập...' : 'Sign In'}
 					</button>
 				</form>
 
-				<div className="mt-5 text-sm text-center text-[#8b7065]">
-					Chưa có tài khoản?{' '}
-					<a href="/register" className="text-[#d47b8a] font-medium hover:underline hover:text-[#c06c7a] transition">Đăng ký</a>
+				<div className="mt-6 text-sm text-center text-[#6b7aa6]">
+					Don’t have an account?{' '}
+					<a href="/register" className="text-[#7587d2] font-semibold hover:underline">
+						Sign up
+					</a>
 				</div>
 			</div>
 		</div>

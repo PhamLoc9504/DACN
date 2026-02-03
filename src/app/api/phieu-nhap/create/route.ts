@@ -3,6 +3,10 @@ import { getServerSupabase } from '@/lib/supabaseClient';
 import { getSessionFromCookies } from '@/lib/session';
 import { logCRUD, logActivity } from '@/lib/auditLog';
 
+function todayVietnamDate() {
+	return new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' }); // yyyy-mm-dd
+}
+
 // Body: { phieu: { SoPN, NgayNhap, MaNCC }, chitiet: [{ MaHH, SLNhap, DGNhap }] }
 export async function POST(req: Request) {
 	try {
@@ -91,7 +95,8 @@ export async function POST(req: Request) {
 			.insert([
 				{
 					sopn: soPN,
-					ngaynhap: phieu.NgayNhap ?? null,
+					// Default to Vietnam local date to avoid UTC-1 day shift
+					ngaynhap: phieu.NgayNhap ?? todayVietnamDate(),
 					manv: maNV,
 					mancc: phieu.MaNCC ?? null,
 				},
@@ -193,7 +198,8 @@ export async function POST(req: Request) {
 			.insert([
 				{
 					mahd: maHD,
-					ngaylap: phieu.NgayNhap ?? new Date().toISOString(),
+					// Use Vietnam local date when absent to avoid off-by-1-day (UTC)
+					ngaylap: phieu.NgayNhap ?? todayVietnamDate(),
 					makh: null, // Phiếu nhập thường không gắn KH
 					tongtien: tongTienPhieu,
 					trangthai: 'Chưa thanh toán',

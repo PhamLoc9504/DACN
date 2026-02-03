@@ -277,9 +277,16 @@ export default function BaoCaoPage() {
 	}
 
 	async function loadDoanhThuReport() {
-			setLoading(true);
+		setLoading(true);
 		try {
-			const res = await fetch(`/api/hoa-don?status=${encodeURIComponent('Đã thanh toán')}&limit=10000&page=1`, {
+			const params = new URLSearchParams();
+			params.set('status', 'Đã thanh toán');
+			params.set('limit', '10000');
+			params.set('page', '1');
+			if (fromDate) params.set('from', fromDate);
+			if (toDate) params.set('to', toDate);
+
+			const res = await fetch(`/api/hoa-don?${params.toString()}`, {
 				credentials: 'include',
 			}).then((r) => r.json());
 
@@ -614,31 +621,34 @@ export default function BaoCaoPage() {
 	];
 
 	return (
-		<div className="space-y-6 bg-slate-100 min-h-screen p-6 text-slate-900">
-			<div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
+		<div className="space-y-6 min-h-screen p-6 bg-gradient-to-br from-[#f2f4fb] via-[#e6ebf7] to-[#dbe1f0] text-[#2f3650]">
+			<div className="w-full bg-[#eef1f8]/90 backdrop-blur-xl rounded-[24px] shadow-[20px_20px_40px_-28px_rgba(79,90,119,0.4),-16px_-16px_32px_rgba(255,255,255,0.92)] border border-white/60 p-6">
 				{/* Header */}
-				<div className="flex items-center justify-between mb-6 flex-wrap gap-4">
-					<h1 className="text-2xl font-semibold text-slate-900 flex items-center gap-3">
-						<span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-tr from-indigo-500 via-purple-500 to-rose-500 text-white text-lg shadow-md">
-							📊
-						</span>
-						<span>Thống kê - Báo cáo hàng hóa</span>
-					</h1>
-					<div className="flex gap-3 items-center">
-						<input
-							type="date"
-							className="bg-white border border-gray-300 rounded-xl px-3 py-2 text-sm text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none transition"
-							value={fromDate}
-							onChange={(e) => setFromDate(e.target.value)}
-						/>
-						<span className="text-sm text-gray-600">đến</span>
-						<input
-							type="date"
-							className="bg-white border border-gray-300 rounded-xl px-3 py-2 text-sm text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none transition"
-							value={toDate}
-							onChange={(e) => setToDate(e.target.value)}
-						/>
-						<Button variant="secondary" onClick={handleExport}>
+				<div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+					<div>
+						<h1 className="text-2xl font-bold text-[#313a5a]">Báo cáo & Thống kê</h1>
+						<p className="text-sm text-[#6b7aa6]">Tổng hợp số liệu nhập/xuất, doanh thu và tồn kho</p>
+					</div>
+					<div className="flex flex-wrap gap-3 items-center text-sm">
+						<div className="flex items-center gap-2">
+							<label className="text-[#6b7aa6]">Từ ngày</label>
+							<input
+								type="date"
+								value={fromDate}
+								onChange={(e) => setFromDate(e.target.value)}
+								className="rounded-xl border border-[#d9e0f3] bg-white/70 px-3 py-1.5 text-sm text-[#2f3650] shadow-[6px_6px_14px_rgba(146,163,184,0.18),-6px_-6px_14px_rgba(255,255,255,0.95)] focus:border-[#9fb4ff] focus:outline-none focus:ring-2 focus:ring-[#cfd8ff]"
+							/>
+						</div>
+						<div className="flex items-center gap-2">
+							<label className="text-[#6b7aa6]">Đến ngày</label>
+							<input
+								type="date"
+								value={toDate}
+								onChange={(e) => setToDate(e.target.value)}
+								className="rounded-xl border border-[#d9e0f3] bg-white/70 px-3 py-1.5 text-sm text-[#2f3650] shadow-[6px_6px_14px_rgba(146,163,184,0.18),-6px_-6px_14px_rgba(255,255,255,0.95)] focus:border-[#9fb4ff] focus:outline-none focus:ring-2 focus:ring-[#cfd8ff]"
+							/>
+						</div>
+						<Button onClick={handleExport} className="bg-gradient-to-r from-[#7fa5ff] to-[#5f73c7] text-white shadow-[8px_8px_16px_rgba(111,130,179,0.25),-6px_-6px_14px_rgba(255,255,255,0.95)] hover:brightness-105">
 							<Download className="w-4 h-4 mr-2" />
 							Xuất báo cáo
 						</Button>
@@ -646,26 +656,21 @@ export default function BaoCaoPage() {
 				</div>
 
 				{/* Tabs */}
-				<div className="flex gap-2 mb-6 border-b border-gray-200 overflow-x-auto">
-					{tabs.map((tab) => {
-						const Icon = tab.icon;
-						return (
-							<button
-								key={tab.id}
-								onClick={() => setActiveTab(tab.id)}
-								className={`px-4 py-2 text-sm font-medium transition-all border-b-2 whitespace-nowrap ${
-									activeTab === tab.id
-										? 'border-indigo-500 text-indigo-600 bg-indigo-50'
-										: 'border-transparent text-slate-500 hover:text-slate-900 hover:border-slate-200'
-								}`}
-							>
-								<div className="flex items-center gap-2">
-									<Icon className="w-4 h-4" />
-									{tab.label}
-								</div>
-							</button>
-						);
-					})}
+				<div className="mt-4 flex flex-wrap gap-2">
+					{tabs.map((tab) => (
+						<button
+							key={tab.id}
+							onClick={() => setActiveTab(tab.id)}
+							className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl border text-sm transition shadow-[6px_6px_14px_rgba(146,163,184,0.18),-6px_-6px_14px_rgba(255,255,255,0.95)] ${
+								activeTab === tab.id
+									? 'bg-[#e4e9f8] border-[#9fb4ff] text-[#2f3650]'
+									: 'bg-white/80 border-[#d9e0f3] text-[#6b7aa6] hover:bg-[#eef1f8]'
+							}`}
+						>
+							<tab.icon className="w-4 h-4" />
+							{tab.label}
+						</button>
+					))}
 				</div>
 
 				{/* Content */}
@@ -676,85 +681,75 @@ export default function BaoCaoPage() {
 						{activeTab === 'nhap' && nhapData && (
 							<div className="space-y-6">
 								<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-									<div className="rounded-xl border bg-gradient-to-br from-blue-50 to-blue-100 p-4 shadow-sm">
-										<div className="flex items-center justify-between">
-											<div>
-												<div className="text-sm text-gray-600">Tổng số phiếu</div>
-												<div className="text-2xl font-bold text-gray-800 mt-1">{nhapData.totalPhieu}</div>
+									{[
+										{ label: 'Tổng số phiếu nhập', value: nhapData.totalPhieu, icon: Package },
+										{ label: 'Tổng số lượng nhập', value: nhapData.totalQuantity.toLocaleString('vi-VN'), icon: TrendingUp },
+										{ label: 'Tổng giá trị nhập', value: `${nhapData.totalValue.toLocaleString('vi-VN')} ₫`, icon: DollarSign },
+									].map((item, idx) => (
+										<div key={idx} className="rounded-2xl border border-[#d9e0f3] bg-white/75 shadow-[12px_12px_28px_rgba(146,163,184,0.18),-10px_-10px_24px_rgba(255,255,255,0.95)] p-4">
+											<div className="flex items-center justify-between">
+												<div>
+													<div className="text-sm text-[#6b7aa6]">{item.label}</div>
+													<div className="text-2xl font-bold text-[#2f3650] mt-1">{item.value}</div>
+												</div>
+												<item.icon className="w-8 h-8 text-[#5f73c7]" />
 											</div>
-											<Package className="w-8 h-8 text-blue-600" />
 										</div>
-									</div>
-									<div className="rounded-xl border bg-gradient-to-br from-green-50 to-green-100 p-4 shadow-sm">
-										<div className="flex items-center justify-between">
-											<div>
-												<div className="text-sm text-gray-600">Tổng giá trị</div>
-												<div className="text-2xl font-bold text-gray-800 mt-1">{nhapData.totalValue.toLocaleString('vi-VN')} ₫</div>
-											</div>
-											<DollarSign className="w-8 h-8 text-green-600" />
-										</div>
-									</div>
-									<div className="rounded-xl border bg-gradient-to-br from-purple-50 to-purple-100 p-4 shadow-sm">
-										<div className="flex items-center justify-between">
-											<div>
-												<div className="text-sm text-gray-600">Tổng số lượng</div>
-												<div className="text-2xl font-bold text-gray-800 mt-1">{nhapData.totalQuantity.toLocaleString('vi-VN')}</div>
-											</div>
-											<TrendingUp className="w-8 h-8 text-purple-600" />
-										</div>
-									</div>
+									))}
 								</div>
-								<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-									<div className="rounded-xl border bg-white p-4 shadow-sm">
-										<div className="font-semibold text-gray-800 mb-4">📈 Nhập hàng theo tháng</div>
+								<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+									<div className="rounded-2xl border border-[#d9e0f3] bg-white/80 shadow-[12px_12px_28px_rgba(146,163,184,0.16),-10px_-10px_24px_rgba(255,255,255,0.95)] p-4">
+										<div className="font-semibold text-[#2f3650] mb-4">📈 Giá trị nhập theo tháng</div>
 										<div className="h-64">
 											<ResponsiveContainer width="100%" height={240}>
 												<LineChart data={nhapData.byMonth}>
-													<CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-													<XAxis dataKey="month" stroke="#94A3B8" />
-													<YAxis stroke="#94A3B8" tickFormatter={(v) => `${v / 1000000}M`} />
-													<Tooltip formatter={(value: number) => `${Number(value).toLocaleString('vi-VN')} ₫`} />
-													<Line type="monotone" dataKey="value" stroke="#0EA5E9" strokeWidth={2} dot={false} />
+													<CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#d9e0f3" />
+													<XAxis dataKey="month" stroke="#6b7aa6" />
+													<YAxis stroke="#6b7aa6" tickFormatter={(v) => `${v / 1000000}M`} />
+													<Tooltip formatter={(value: number) => `${Number(value).toLocaleString('vi-VN')} ₫`} contentStyle={{ borderRadius: 12, border: '#d9e0f3 solid 1px' }} />
+													<Line type="monotone" dataKey="value" stroke="#5f73c7" strokeWidth={2} dot={false} />
 												</LineChart>
 											</ResponsiveContainer>
 										</div>
 									</div>
-									<div className="rounded-xl border bg-white p-4 shadow-sm">
-										<div className="font-semibold text-gray-800 mb-4">🏭 Top nhà cung cấp</div>
+									<div className="rounded-2xl border border-[#d9e0f3] bg-white/80 shadow-[12px_12px_28px_rgba(146,163,184,0.16),-10px_-10px_24px_rgba(255,255,255,0.95)] p-4">
+										<div className="font-semibold text-[#2f3650] mb-4">🏢 Top nhà cung cấp</div>
 										<div className="h-64">
 											<ResponsiveContainer width="100%" height={240}>
-												<BarChart data={nhapData.byNCC}>
-													<CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-													<XAxis dataKey="name" stroke="#94A3B8" />
-													<YAxis stroke="#94A3B8" tickFormatter={(v) => `${v / 1000000}M`} />
-													<Tooltip formatter={(value: number) => `${Number(value).toLocaleString('vi-VN')} ₫`} />
-													<Bar dataKey="value" fill="#22c55e" />
-												</BarChart>
+												<PieChart>
+													<Pie data={nhapData.byNCC} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} fill="#5f73c7" stroke="#eef1f8" strokeWidth={2}>
+														{nhapData.byNCC.map((_, index) => (
+															<Cell key={`cell-${index}`} fill={['#5f73c7', '#7fa5ff', '#22c55e', '#f59e0b', '#38bdf8'][index % 5]} />
+														))}
+													</Pie>
+													<Tooltip formatter={(value: number) => `${Number(value).toLocaleString('vi-VN')} ₫`} contentStyle={{ borderRadius: 12, border: '#d9e0f3 solid 1px' }} />
+													<Legend />
+												</PieChart>
 											</ResponsiveContainer>
 										</div>
 									</div>
 								</div>
-								<div className="rounded-xl border bg-white p-4 shadow-sm">
-									<div className="font-semibold text-gray-800 mb-4">📦 Top sản phẩm nhập nhiều nhất</div>
-					<div className="overflow-x-auto">
-						<table className="min-w-full text-sm">
-							<thead>
-												<tr className="text-left bg-gray-50 text-gray-600 border-b">
+								<div className="rounded-2xl border border-[#d9e0f3] bg-white/80 shadow-[12px_12px_28px_rgba(146,163,184,0.16),-10px_-10px_24px_rgba(255,255,255,0.95)] p-4">
+									<div className="font-semibold text-[#2f3650] mb-4">📦 Top sản phẩm nhập nhiều nhất</div>
+									<div className="overflow-x-auto">
+										<table className="min-w-full text-sm">
+											<thead>
+												<tr className="text-left bg-[#eef1f8] text-[#6b7aa6] border-b border-[#d9e0f3]">
 													<th className="py-2 px-4 font-medium">STT</th>
 													<th className="py-2 px-4 font-medium">Tên sản phẩm</th>
 													<th className="py-2 px-4 font-medium text-right">Số lượng</th>
 													<th className="py-2 px-4 font-medium text-right">Giá trị</th>
-								</tr>
-							</thead>
-							<tbody>
+												</tr>
+											</thead>
+											<tbody>
 												{nhapData.byProduct.map((p, i) => (
-													<tr key={i} className="border-b hover:bg-gray-50">
+													<tr key={i} className="border-b border-[#eef1f8] hover:bg-[#f6f8fc]">
 														<td className="py-2 px-4">{i + 1}</td>
 														<td className="py-2 px-4">{p.name}</td>
 														<td className="py-2 px-4 text-right">{p.quantity.toLocaleString('vi-VN')}</td>
-														<td className="py-2 px-4 text-right font-medium text-[#d47b8a]">{p.value.toLocaleString('vi-VN')} ₫</td>
-										</tr>
-									))}
+														<td className="py-2 px-4 text-right font-medium text-[#5f73c7]">{p.value.toLocaleString('vi-VN')} ₫</td>
+													</tr>
+												))}
 											</tbody>
 										</table>
 									</div>
@@ -765,70 +760,58 @@ export default function BaoCaoPage() {
 						{activeTab === 'xuat' && xuatData && (
 							<div className="space-y-6">
 								<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-									<div className="rounded-xl border bg-gradient-to-br from-blue-50 to-blue-100 p-4 shadow-sm">
-										<div className="flex items-center justify-between">
-											<div>
-												<div className="text-sm text-gray-600">Tổng số phiếu</div>
-												<div className="text-2xl font-bold text-gray-800 mt-1">{xuatData.totalPhieu}</div>
+									{[
+										{ label: 'Tổng số phiếu xuất', value: xuatData.totalPhieu, icon: Package },
+										{ label: 'Tổng số lượng xuất', value: xuatData.totalQuantity.toLocaleString('vi-VN'), icon: TrendingUp },
+										{ label: 'Tổng giá trị xuất', value: `${xuatData.totalValue.toLocaleString('vi-VN')} ₫`, icon: DollarSign },
+									].map((item, idx) => (
+										<div key={idx} className="rounded-2xl border border-[#d9e0f3] bg-white/75 shadow-[12px_12px_28px_rgba(146,163,184,0.18),-10px_-10px_24px_rgba(255,255,255,0.95)] p-4">
+											<div className="flex items-center justify-between">
+												<div>
+													<div className="text-sm text-[#6b7aa6]">{item.label}</div>
+													<div className="text-2xl font-bold text-[#2f3650] mt-1">{item.value}</div>
+												</div>
+												<item.icon className="w-8 h-8 text-[#5f73c7]" />
 											</div>
-											<Package className="w-8 h-8 text-blue-600" />
 										</div>
-									</div>
-									<div className="rounded-xl border bg-gradient-to-br from-green-50 to-green-100 p-4 shadow-sm">
-										<div className="flex items-center justify-between">
-											<div>
-												<div className="text-sm text-gray-600">Tổng giá trị</div>
-												<div className="text-2xl font-bold text-gray-800 mt-1">{xuatData.totalValue.toLocaleString('vi-VN')} ₫</div>
-											</div>
-											<DollarSign className="w-8 h-8 text-green-600" />
-										</div>
-									</div>
-									<div className="rounded-xl border bg-gradient-to-br from-purple-50 to-purple-100 p-4 shadow-sm">
-										<div className="flex items-center justify-between">
-											<div>
-												<div className="text-sm text-gray-600">Tổng số lượng</div>
-												<div className="text-2xl font-bold text-gray-800 mt-1">{xuatData.totalQuantity.toLocaleString('vi-VN')}</div>
-											</div>
-											<TrendingUp className="w-8 h-8 text-purple-600" />
-										</div>
-									</div>
+									))}
 								</div>
-								<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-									<div className="rounded-xl border bg-white p-4 shadow-sm">
-										<div className="font-semibold text-gray-800 mb-4">📈 Xuất hàng theo tháng</div>
+								<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+									<div className="rounded-2xl border border-[#d9e0f3] bg-white/80 shadow-[12px_12px_28px_rgba(146,163,184,0.16),-10px_-10px_24px_rgba(255,255,255,0.95)] p-4">
+										<div className="font-semibold text-[#2f3650] mb-4">📈 Giá trị xuất theo tháng</div>
 										<div className="h-64">
 											<ResponsiveContainer width="100%" height={240}>
 												<LineChart data={xuatData.byMonth}>
-													<CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-													<XAxis dataKey="month" stroke="#94A3B8" />
-													<YAxis stroke="#94A3B8" tickFormatter={(v) => `${v / 1000000}M`} />
-													<Tooltip formatter={(value: number) => `${Number(value).toLocaleString('vi-VN')} ₫`} />
-													<Line type="monotone" dataKey="value" stroke="#0EA5E9" strokeWidth={2} dot={false} />
+													<CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#d9e0f3" />
+													<XAxis dataKey="month" stroke="#6b7aa6" />
+													<YAxis stroke="#6b7aa6" tickFormatter={(v) => `${v / 1000000}M`} />
+													<Tooltip formatter={(value: number) => `${Number(value).toLocaleString('vi-VN')} ₫`} contentStyle={{ borderRadius: 12, border: '#d9e0f3 solid 1px' }} />
+													<Line type="monotone" dataKey="value" stroke="#38bdf8" strokeWidth={2} dot={false} />
 												</LineChart>
 											</ResponsiveContainer>
 										</div>
 									</div>
-									<div className="rounded-xl border bg-white p-4 shadow-sm">
-										<div className="font-semibold text-gray-800 mb-4">👔 Top nhân viên</div>
+									<div className="rounded-2xl border border-[#d9e0f3] bg-white/80 shadow-[12px_12px_28px_rgba(146,163,184,0.16),-10px_-10px_24px_rgba(255,255,255,0.95)] p-4">
+										<div className="font-semibold text-[#2f3650] mb-4">👔 Top nhân viên</div>
 										<div className="h-64">
 											<ResponsiveContainer width="100%" height={240}>
 												<BarChart data={xuatData.byNV}>
-													<CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-													<XAxis dataKey="name" stroke="#94A3B8" />
-													<YAxis stroke="#94A3B8" tickFormatter={(v) => `${v / 1000000}M`} />
-													<Tooltip formatter={(value: number) => `${Number(value).toLocaleString('vi-VN')} ₫`} />
-													<Bar dataKey="value" fill="#22c55e" />
+													<CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#d9e0f3" />
+													<XAxis dataKey="name" stroke="#6b7aa6" />
+													<YAxis stroke="#6b7aa6" tickFormatter={(v) => `${v / 1000000}M`} />
+													<Tooltip formatter={(value: number) => `${Number(value).toLocaleString('vi-VN')} ₫`} contentStyle={{ borderRadius: 12, border: '#d9e0f3 solid 1px' }} />
+													<Bar dataKey="value" fill="#5f73c7" radius={[8, 8, 8, 8]} />
 												</BarChart>
 											</ResponsiveContainer>
 										</div>
 									</div>
 								</div>
-								<div className="rounded-xl border bg-white p-4 shadow-sm">
-									<div className="font-semibold text-gray-800 mb-4">📦 Top sản phẩm xuất nhiều nhất</div>
+								<div className="rounded-2xl border border-[#d9e0f3] bg-white/80 shadow-[12px_12px_28px_rgba(146,163,184,0.16),-10px_-10px_24px_rgba(255,255,255,0.95)] p-4">
+									<div className="font-semibold text-[#2f3650] mb-4">📦 Top sản phẩm xuất nhiều nhất</div>
 									<div className="overflow-x-auto">
 										<table className="min-w-full text-sm">
 											<thead>
-												<tr className="text-left bg-gray-50 text-gray-600 border-b">
+												<tr className="text-left bg-[#eef1f8] text-[#6b7aa6] border-b border-[#d9e0f3]">
 													<th className="py-2 px-4 font-medium">STT</th>
 													<th className="py-2 px-4 font-medium">Tên sản phẩm</th>
 													<th className="py-2 px-4 font-medium text-right">Số lượng</th>
@@ -837,13 +820,13 @@ export default function BaoCaoPage() {
 											</thead>
 											<tbody>
 												{xuatData.byProduct.map((p, i) => (
-													<tr key={i} className="border-b hover:bg-gray-50">
+													<tr key={i} className="border-b border-[#eef1f8] hover:bg-[#f6f8fc]">
 														<td className="py-2 px-4">{i + 1}</td>
 														<td className="py-2 px-4">{p.name}</td>
 														<td className="py-2 px-4 text-right">{p.quantity.toLocaleString('vi-VN')}</td>
-														<td className="py-2 px-4 text-right font-medium text-[#d47b8a]">{p.value.toLocaleString('vi-VN')} ₫</td>
-										</tr>
-									))}
+														<td className="py-2 px-4 text-right font-medium text-[#5f73c7]">{p.value.toLocaleString('vi-VN')} ₫</td>
+													</tr>
+												))}
 											</tbody>
 										</table>
 									</div>
@@ -854,34 +837,34 @@ export default function BaoCaoPage() {
 						{activeTab === 'doanh-thu' && doanhThuData && (
 							<div className="space-y-6">
 								<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-									<div className="rounded-xl border bg-gradient-to-br from-green-50 to-green-100 p-4 shadow-sm">
+									<div className="rounded-2xl border border-[#d9e0f3] bg-white/80 shadow-[12px_12px_28px_rgba(146,163,184,0.16),-10px_-10px_24px_rgba(255,255,255,0.95)] p-4">
 										<div className="flex items-center justify-between">
 											<div>
-												<div className="text-sm text-gray-600">Tổng doanh thu</div>
-												<div className="text-2xl font-bold text-gray-800 mt-1">{doanhThuData.totalRevenue.toLocaleString('vi-VN')} ₫</div>
+												<div className="text-sm text-[#6b7aa6]">Tổng doanh thu</div>
+												<div className="text-2xl font-bold text-[#2f3650] mt-1">{doanhThuData.totalRevenue.toLocaleString('vi-VN')} ₫</div>
 											</div>
-											<DollarSign className="w-8 h-8 text-green-600" />
+											<DollarSign className="w-8 h-8 text-[#22c55e]" />
 										</div>
 									</div>
-									<div className="rounded-xl border bg-gradient-to-br from-blue-50 to-blue-100 p-4 shadow-sm">
+									<div className="rounded-2xl border border-[#d9e0f3] bg-white/80 shadow-[12px_12px_28px_rgba(146,163,184,0.16),-10px_-10px_24px_rgba(255,255,255,0.95)] p-4">
 										<div className="flex items-center justify-between">
 											<div>
-												<div className="text-sm text-gray-600">Tổng số hóa đơn</div>
-												<div className="text-2xl font-bold text-gray-800 mt-1">{doanhThuData.totalInvoices}</div>
+												<div className="text-sm text-[#6b7aa6]">Tổng số hóa đơn</div>
+												<div className="text-2xl font-bold text-[#2f3650] mt-1">{doanhThuData.totalInvoices}</div>
 											</div>
-											<Package className="w-8 h-8 text-blue-600" />
+											<Package className="w-8 h-8 text-[#5f73c7]" />
 										</div>
 									</div>
 								</div>
-								<div className="rounded-xl border bg-white p-4 shadow-sm">
-									<div className="font-semibold text-gray-800 mb-4">📈 Doanh thu theo tháng</div>
+								<div className="rounded-2xl border border-[#d9e0f3] bg-white/80 shadow-[12px_12px_28px_rgba(146,163,184,0.16),-10px_-10px_24px_rgba(255,255,255,0.95)] p-4">
+									<div className="font-semibold text-[#2f3650] mb-4">📈 Doanh thu theo tháng</div>
 									<div className="h-64">
 										<ResponsiveContainer width="100%" height={240}>
 											<LineChart data={doanhThuData.byMonth}>
-												<CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-												<XAxis dataKey="month" stroke="#94A3B8" />
-												<YAxis stroke="#94A3B8" tickFormatter={(v) => `${v / 1000000}M`} />
-												<Tooltip formatter={(value: number) => `${Number(value).toLocaleString('vi-VN')} ₫`} />
+												<CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#d9e0f3" />
+												<XAxis dataKey="month" stroke="#6b7aa6" />
+												<YAxis stroke="#6b7aa6" tickFormatter={(v) => `${v / 1000000}M`} />
+												<Tooltip formatter={(value: number) => `${Number(value).toLocaleString('vi-VN')} ₫`} contentStyle={{ borderRadius: 12, border: '#d9e0f3 solid 1px' }} />
 												<Line type="monotone" dataKey="revenue" stroke="#22c55e" strokeWidth={2} dot={false} />
 											</LineChart>
 										</ResponsiveContainer>
@@ -893,40 +876,28 @@ export default function BaoCaoPage() {
 						{activeTab === 'ton-kho' && tonKhoData && (
 							<div className="space-y-6">
 								<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-									<div className="rounded-xl border bg-gradient-to-br from-blue-50 to-blue-100 p-4 shadow-sm">
-										<div className="flex items-center justify-between">
-											<div>
-												<div className="text-sm text-gray-600">Tổng số sản phẩm</div>
-												<div className="text-2xl font-bold text-gray-800 mt-1">{tonKhoData.totalProducts}</div>
+									{[
+										{ label: 'Tổng số sản phẩm', value: tonKhoData.totalProducts, icon: Package },
+										{ label: 'Tổng số lượng tồn', value: tonKhoData.totalQuantity.toLocaleString('vi-VN'), icon: TrendingUp },
+										{ label: 'Tổng giá trị tồn', value: `${tonKhoData.totalValue.toLocaleString('vi-VN')} ₫`, icon: DollarSign },
+									].map((item, idx) => (
+										<div key={idx} className="rounded-2xl border border-[#d9e0f3] bg-white/75 shadow-[12px_12px_28px_rgba(146,163,184,0.18),-10px_-10px_24px_rgba(255,255,255,0.95)] p-4">
+											<div className="flex items-center justify-between">
+												<div>
+													<div className="text-sm text-[#6b7aa6]">{item.label}</div>
+													<div className="text-2xl font-bold text-[#2f3650] mt-1">{item.value}</div>
+												</div>
+												<item.icon className="w-8 h-8 text-[#5f73c7]" />
 											</div>
-											<Package className="w-8 h-8 text-blue-600" />
 										</div>
-									</div>
-									<div className="rounded-xl border bg-gradient-to-br from-green-50 to-green-100 p-4 shadow-sm">
-										<div className="flex items-center justify-between">
-											<div>
-												<div className="text-sm text-gray-600">Tổng số lượng tồn</div>
-												<div className="text-2xl font-bold text-gray-800 mt-1">{tonKhoData.totalQuantity.toLocaleString('vi-VN')}</div>
-											</div>
-											<TrendingUp className="w-8 h-8 text-green-600" />
-										</div>
-									</div>
-									<div className="rounded-xl border bg-gradient-to-br from-purple-50 to-purple-100 p-4 shadow-sm">
-										<div className="flex items-center justify-between">
-											<div>
-												<div className="text-sm text-gray-600">Tổng giá trị tồn</div>
-												<div className="text-2xl font-bold text-gray-800 mt-1">{tonKhoData.totalValue.toLocaleString('vi-VN')} ₫</div>
-											</div>
-											<DollarSign className="w-8 h-8 text-purple-600" />
-										</div>
-									</div>
+									))}
 								</div>
-								<div className="rounded-xl border bg-white p-4 shadow-sm">
-									<div className="font-semibold text-gray-800 mb-4">⚠️ Sản phẩm sắp hết hàng (≤ 10)</div>
+								<div className="rounded-2xl border border-[#d9e0f3] bg-white/80 shadow-[12px_12px_28px_rgba(146,163,184,0.16),-10px_-10px_24px_rgba(255,255,255,0.95)] p-4">
+									<div className="font-semibold text-[#2f3650] mb-4">⚠️ Sản phẩm sắp hết hàng (≤ 10)</div>
 									<div className="overflow-x-auto">
 										<table className="min-w-full text-sm">
 											<thead>
-												<tr className="text-left bg-gray-50 text-gray-600 border-b">
+												<tr className="text-left bg-[#eef1f8] text-[#6b7aa6] border-b border-[#d9e0f3]">
 													<th className="py-2 px-4 font-medium">STT</th>
 													<th className="py-2 px-4 font-medium">Tên sản phẩm</th>
 													<th className="py-2 px-4 font-medium text-right">Số lượng tồn</th>
@@ -934,63 +905,67 @@ export default function BaoCaoPage() {
 											</thead>
 											<tbody>
 												{tonKhoData.lowStock.map((p, i) => (
-													<tr key={i} className="border-b hover:bg-gray-50">
+													<tr key={i} className="border-b border-[#eef1f8] hover:bg-[#f6f8fc]">
 														<td className="py-2 px-4">{i + 1}</td>
 														<td className="py-2 px-4">{p.name}</td>
-														<td className="py-2 px-4 text-right font-medium text-red-600">{p.quantity}</td>
+														<td className="py-2 px-4 text-right font-medium text-[#5f73c7]">{p.quantity}</td>
 													</tr>
 												))}
 												{tonKhoData.lowStock.length === 0 && (
 													<tr>
-														<td colSpan={3} className="py-6 text-center text-gray-500">Không có sản phẩm nào sắp hết hàng</td>
-									</tr>
-								)}
-							</tbody>
-						</table>
-					</div>
-				</div>
+														<td colSpan={3} className="py-6 text-center text-[#6b7aa6]">Không có sản phẩm nào sắp hết hàng</td>
+													</tr>
+												)}
+											</tbody>
+										</table>
+									</div>
+								</div>
 							</div>
 						)}
 
 						{activeTab === 'tim-kiem' && (
 							<div className="space-y-6">
-								<div className="rounded-xl border bg-white p-4 shadow-sm">
+								<div className="rounded-2xl border border-[#d9e0f3] bg-white/85 shadow-[12px_12px_28px_rgba(146,163,184,0.16),-10px_-10px_24px_rgba(255,255,255,0.95)] p-4">
 									<div className="flex gap-3 mb-4">
 										<input
 											type="text"
-											className="flex-1 bg-white border border-gray-300 rounded-xl px-4 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 outline-none transition"
+											className="flex-1 bg-white/80 border border-[#d9e0f3] rounded-xl px-4 py-2 text-sm text-[#2f3650] placeholder:text-[#9aa5c4] shadow-[6px_6px_14px_rgba(146,163,184,0.16),-6px_-6px_14px_rgba(255,255,255,0.95)] focus:border-[#9fb4ff] focus:outline-none focus:ring-2 focus:ring-[#cfd8ff]"
 											placeholder="Tìm kiếm hàng hóa, phiếu nhập, phiếu xuất, hóa đơn..."
 											value={searchQuery}
 											onChange={(e) => setSearchQuery(e.target.value)}
 										/>
-										<Button onClick={handleSearch} disabled={searching}>
+										<Button
+											onClick={handleSearch}
+											disabled={searching}
+											className="bg-gradient-to-r from-[#7fa5ff] to-[#5f73c7] text-white shadow-[8px_8px_16px_rgba(111,130,179,0.25),-6px_-6px_14px_rgba(255,255,255,0.95)] hover:brightness-105"
+										>
 											<Search className="w-4 h-4 mr-2" />
 											{searching ? 'Đang tìm...' : 'Tìm kiếm'}
 										</Button>
 									</div>
 
 									{!searchResults && !searching && (
-										<div className="text-center py-10 text-gray-500">
-											<Search className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+										<div className="text-center py-10 text-[#6b7aa6]">
+											<Search className="w-12 h-12 mx-auto mb-3 text-[#9aa5c4]" />
 											<p>Nhập từ khóa và bấm "Tìm kiếm" để tra cứu hàng hóa, phiếu nhập, phiếu xuất, hóa đơn.</p>
 										</div>
 									)}
 
 									{searching && (
-										<div className="text-center py-8 text-gray-500">Đang tìm kiếm...</div>
+										<div className="text-center py-8 text-[#6b7aa6]">Đang tìm kiếm...</div>
 									)}
 
 									{searchResults && !searching && (
 										<div className="space-y-8">
 											<div>
-												<div className="text-sm font-semibold text-gray-700 mb-2">Hàng hóa</div>
+												<div className="text-sm font-semibold text-[#2f3650] mb-2">Hàng hóa</div>
 												{searchResults.products.length === 0 ? (
-													<div className="text-sm text-gray-500">Không có kết quả.</div>
+													<div className="text-sm text-[#6b7aa6]">Không có kết quả.</div>
 												) : (
 													<div className="overflow-x-auto">
 														<table className="min-w-full text-sm">
 															<thead>
-																<tr className="text-left bg-gray-50 text-gray-600 border-b">
+																<tr className="text-left bg-[#eef1f8] text-[#6b7aa6] border-b border-[#d9e0f3]">
 																	<th className="py-2 px-4 font-medium">Mã hàng</th>
 																	<th className="py-2 px-4 font-medium">Tên hàng</th>
 																	<th className="py-2 px-4 font-medium text-right">Tồn kho</th>
@@ -999,7 +974,7 @@ export default function BaoCaoPage() {
 															</thead>
 															<tbody>
 																{searchResults.products.map((p: any, idx: number) => (
-																	<tr key={p.MaHH || idx} className="border-b hover:bg-gray-50">
+																	<tr key={p.MaHH || idx} className="border-b border-[#eef1f8] hover:bg-[#f6f8fc]">
 																		<td className="py-2 px-4">{p.MaHH}</td>
 																		<td className="py-2 px-4">{p.TenHH}</td>
 																		<td className="py-2 px-4 text-right">{(p.SoLuongTon || 0).toLocaleString('vi-VN')}</td>
@@ -1013,14 +988,14 @@ export default function BaoCaoPage() {
 											</div>
 
 											<div>
-												<div className="text-sm font-semibold text-gray-700 mb-2">Phiếu nhập</div>
+												<div className="text-sm font-semibold text-[#2f3650] mb-2">Phiếu nhập</div>
 												{searchResults.nhap.length === 0 ? (
-													<div className="text-sm text-gray-500">Không có kết quả.</div>
+													<div className="text-sm text-[#6b7aa6]">Không có kết quả.</div>
 												) : (
 													<div className="overflow-x-auto">
 														<table className="min-w-full text-sm">
 															<thead>
-																<tr className="text-left bg-gray-50 text-gray-600 border-b">
+																<tr className="text-left bg-[#eef1f8] text-[#6b7aa6] border-b border-[#d9e0f3]">
 																	<th className="py-2 px-4 font-medium">Số PN</th>
 																	<th className="py-2 px-4 font-medium">Ngày nhập</th>
 																	<th className="py-2 px-4 font-medium">Mã NCC</th>
@@ -1029,7 +1004,7 @@ export default function BaoCaoPage() {
 															</thead>
 															<tbody>
 																{searchResults.nhap.map((p: any, idx: number) => (
-																	<tr key={p.SoPN || idx} className="border-b hover:bg-gray-50">
+																	<tr key={p.SoPN || idx} className="border-b border-[#eef1f8] hover:bg-[#f6f8fc]">
 																		<td className="py-2 px-4">{p.SoPN}</td>
 																		<td className="py-2 px-4">{p.NgayNhap}</td>
 																		<td className="py-2 px-4">{p.MaNCC || '-'}</td>
@@ -1043,14 +1018,14 @@ export default function BaoCaoPage() {
 											</div>
 
 											<div>
-												<div className="text-sm font-semibold text-gray-700 mb-2">Phiếu xuất</div>
+												<div className="text-sm font-semibold text-[#2f3650] mb-2">Phiếu xuất</div>
 												{searchResults.xuat.length === 0 ? (
-													<div className="text-sm text-gray-500">Không có kết quả.</div>
+													<div className="text-sm text-[#6b7aa6]">Không có kết quả.</div>
 												) : (
 													<div className="overflow-x-auto">
 														<table className="min-w-full text-sm">
 															<thead>
-																<tr className="text-left bg-gray-50 text-gray-600 border-b">
+																<tr className="text-left bg-[#eef1f8] text-[#6b7aa6] border-b border-[#d9e0f3]">
 																	<th className="py-2 px-4 font-medium">Số PX</th>
 																	<th className="py-2 px-4 font-medium">Ngày xuất</th>
 																	<th className="py-2 px-4 font-medium">Mã NV</th>
@@ -1059,7 +1034,7 @@ export default function BaoCaoPage() {
 															</thead>
 															<tbody>
 																{searchResults.xuat.map((p: any, idx: number) => (
-																	<tr key={p.SoPX || idx} className="border-b hover:bg-gray-50">
+																	<tr key={p.SoPX || idx} className="border-b border-[#eef1f8] hover:bg-[#f6f8fc]">
 																		<td className="py-2 px-4">{p.SoPX}</td>
 																		<td className="py-2 px-4">{p.NgayXuat}</td>
 																		<td className="py-2 px-4">{p.MaNV}</td>
@@ -1073,14 +1048,14 @@ export default function BaoCaoPage() {
 											</div>
 
 											<div>
-												<div className="text-sm font-semibold text-gray-700 mb-2">Hóa đơn</div>
+												<div className="text-sm font-semibold text-[#2f3650] mb-2">Hóa đơn</div>
 												{searchResults.invoices.length === 0 ? (
-													<div className="text-sm text-gray-500">Không có kết quả.</div>
+													<div className="text-sm text-[#6b7aa6]">Không có kết quả.</div>
 												) : (
 													<div className="overflow-x-auto">
 														<table className="min-w-full text-sm">
 															<thead>
-																<tr className="text-left bg-gray-50 text-gray-600 border-b">
+																<tr className="text-left bg-[#eef1f8] text-[#6b7aa6] border-b border-[#d9e0f3]">
 																	<th className="py-2 px-4 font-medium">Mã HD</th>
 																	<th className="py-2 px-4 font-medium">Ngày lập</th>
 																	<th className="py-2 px-4 font-medium">Mã KH</th>
@@ -1090,7 +1065,7 @@ export default function BaoCaoPage() {
 															</thead>
 															<tbody>
 																{searchResults.invoices.map((inv: any, idx: number) => (
-																	<tr key={inv.MaHD || idx} className="border-b hover:bg-gray-50">
+																	<tr key={inv.MaHD || idx} className="border-b border-[#eef1f8] hover:bg-[#f6f8fc]">
 																		<td className="py-2 px-4">{inv.MaHD}</td>
 																		<td className="py-2 px-4">{inv.NgayLap}</td>
 																		<td className="py-2 px-4">{inv.MaKH || '-'}</td>

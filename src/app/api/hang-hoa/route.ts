@@ -55,7 +55,8 @@ export async function GET(req: Request) {
 			const { searchParams } = new URL(req.url);
 			const barcode = searchParams.get('barcode')?.trim();
 			const page = parseInt(searchParams.get('page') || '1', 10);
-			const limit = parseInt(searchParams.get('limit') || '10', 10);
+			const limitParam = parseInt(searchParams.get('limit') || '10', 10);
+			const limit = Math.min(Math.max(limitParam, 1), 1000); // tránh query quá lớn gây lỗi PostgREST
 			const q = searchParams.get('q')?.trim().toLowerCase() || '';
 			// Lọc theo ngày sản xuất / hết hạn (nếu có)
 			const nsxFrom = searchParams.get('nsxFrom')?.trim();

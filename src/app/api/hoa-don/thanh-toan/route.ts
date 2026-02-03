@@ -76,6 +76,39 @@ export async function POST(req: Request) {
 
 		if (errUpdate) throw errUpdate;
 
+		// Nếu có liên kết phiếu xuất -> cập nhật trạng thái phiếu xuất = Hoàn tất
+		if ((updatedHD as any).sopx) {
+			try {
+				const sopx = (updatedHD as any).sopx as string;
+
+				await supabase
+					.from('phieuxuat')
+					.update({ trangthai: 'Hoàn tất' })
+					.eq('sopx', sopx);
+
+				// Trừ tồn kho chính thức sau khi thanh toán
+				const { data: ct } = await supabase
+					.from('ctphieuxuat')
+					.select('mahh, slxuat')
+					.eq('sopx', sopx);
+
+				if (ct && Array.isArray(ct)) {
+					for (const row of ct) {
+						const { data: cur } = await supabase
+							.from('hanghoa')
+							.select('soluongton')
+							.eq('mahh', row.mahh)
+							.maybeSingle();
+						const current = cur?.soluongton || 0;
+						const newQty = current - (row.slxuat || 0);
+						await supabase.from('hanghoa').update({ soluongton: newQty }).eq('mahh', row.mahh);
+					}
+				}
+			} catch (pxErr) {
+				console.error('Không cập nhật được trạng thái phiếu xuất khi thanh toán hóa đơn:', pxErr);
+			}
+		}
+
 		// Lưu thông tin thanh toán (có thể tạo bảng thanh_toan riêng)
 		// Hiện tại chỉ log vào audit log
 		await logActivity({

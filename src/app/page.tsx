@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Tables } from "@/lib/supabaseClient";
+import Link from 'next/link';
 import {
   CartesianGrid,
   XAxis,
@@ -53,7 +54,48 @@ export default function Home() {
   const [flowData, setFlowData] = useState<{ month: string; xuat: number; nhap: number }[]>([]);
   const [revPie, setRevPie] = useState<{ name: string; value: number }[]>([]);
   const [topSelling, setTopSelling] = useState<{ mahh: string; tenhh?: string; qty: number; revenue: number }[]>([]);
-  const [anomalyItems, setAnomalyItems] = useState<Array<{ mahh: string; tenhh?: string; ton?: number | null; nhap: number; xuat: number; nhapHigh: boolean; xuatHigh: boolean }>>([]);
+  const [anomalyMeta, setAnomalyMeta] = useState<{ today: string; avgWindowDays: number; multiplier: number; minTodayQty: number } | null>(null);
+  const [anomalyItems, setAnomalyItems] = useState<
+    Array<{
+      mahh: string;
+      tenhh?: string;
+      ton?: number | null;
+      nhapToday: number;
+      xuatToday: number;
+      avgNhap7d: number;
+      avgXuat7d: number;
+      ratioNhap: number;
+      ratioXuat: number;
+      nhapHigh: boolean;
+      xuatHigh: boolean;
+    }>
+  >([]);
+  const [selectedAnomaly, setSelectedAnomaly] = useState<(typeof anomalyItems)[number] | null>(null);
+  const [anomalyTab, setAnomalyTab] = useState<"info" | "history">("info");
+  const [historyRows, setHistoryRows] = useState<
+    Array<{ time: string; type: string; qty: number; ending?: number | null; actor?: string | null; ref?: string | null }>
+  >([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const loadHistory = useCallback(
+    async (mahh: string) => {
+      try {
+        setHistoryLoading(true);
+        const today = new Date().toISOString().slice(0, 10);
+        const res = await fetch(`/api/dashboard/item-history?mahh=${encodeURIComponent(mahh)}&limit=50&from=${today}`, {
+          credentials: 'include',
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Tải lịch sử thất bại');
+        setHistoryRows(data.data || []);
+      } catch (err) {
+        console.error('Load history error', err);
+        setHistoryRows([]);
+      } finally {
+        setHistoryLoading(false);
+      }
+    },
+    []
+  );
   const [dailyRevenue, setDailyRevenue] = useState<{ day: string; revenue: number }[]>([]);
   const [yearlyRevenue, setYearlyRevenue] = useState<{ year: string; revenue: number }[]>([]);
   const [revView, setRevView] = useState<'month' | 'day' | 'year'>('month');
@@ -67,15 +109,58 @@ export default function Home() {
     return Number.isNaN(d.getTime()) ? null : d;
   }
 
+  function formatNumber(value: number | null | undefined) {
+    const n = Number(value);
+    return Number.isFinite(n) ? n.toLocaleString("vi-VN") : "0";
+  }
+
   function toNumber(value: any): number {
     const n = Number(value);
     return Number.isFinite(n) ? n : 0;
   }
 
+  function formatDateTime(value: string | null | undefined) {
+    if (!value) return "";
+    const s = value.trim();
+    const hasTZ = s.toUpperCase().includes("Z") || s.includes("+");
+    const hasTime = s.includes("T") && /\d{2}:\d{2}/.test(s);
+
+    // Chỉ ngày: trả về dd/mm/yyyy
+    if (!hasTime && !hasTZ && /^\d{4}-\d{2}-\d{2}$/.test(s)) {
+      const [y, m, d] = s.split("-");
+      return `${d}/${m}/${y}`;
+    }
+
+    // Có giờ nhưng không có timezone: coi là giờ Việt Nam
+    if (hasTime && !hasTZ) {
+      const d = new Date(`${s}+07:00`);
+      return Number.isNaN(d.getTime())
+        ? value
+        : d.toLocaleString("vi-VN", { hour12: false, timeZone: "Asia/Ho_Chi_Minh" });
+    }
+
+    // Có timezone: hiển thị theo Asia/Ho_Chi_Minh
+    const d = new Date(s);
+    return Number.isNaN(d.getTime())
+      ? value
+      : d.toLocaleString("vi-VN", { hour12: false, timeZone: "Asia/Ho_Chi_Minh" });
+  }
+
+  useEffect(() => {
+    if (!selectedAnomaly) {
+      setHistoryRows([]);
+      return;
+    }
+    setAnomalyTab("info");
+    // Khi mở modal, mặc định tab Info; nếu người dùng bấm "Xem lịch sử" sẽ gọi loadHistory
+    setHistoryRows([]);
+  }, [selectedAnomaly]);
+
   const loadDashboard = useCallback(async () => {
     setIsRefreshing(true);
     try {
-      const params = new URLSearchParams({ page: "1", limit: "10000" }).toString();
+      // Giới hạn để tránh query quá lớn gây 500 từ PostgREST
+      const params = new URLSearchParams({ page: "1", limit: "1000" }).toString();
 
       const [hhRes, hdRes, topSellRes, anomalyRes] = await Promise.all([
         fetch(`/api/hang-hoa?${params}`, { credentials: "include" }).then((r) => r.json()),
@@ -84,7 +169,11 @@ export default function Home() {
         fetch(`/api/dashboard/item-anomalies`, { credentials: "include" }).then((r) => r.json()),
       ]);
 
-      if (hhRes.error) throw new Error(hhRes.error);
+      if (hhRes.error) {
+        console.error('Lỗi tải hàng hóa:', hhRes.error);
+        setIsRefreshing(false);
+        return;
+      }
       if (hdRes.error) {
         console.error('Lỗi tải hóa đơn:', hdRes.error);
       }
@@ -97,21 +186,22 @@ export default function Home() {
 
       // Lấy tất cả hóa đơn có liên quan đến phiếu xuất / nhập
       const relatedInvoices = invoices.filter((inv) => inv.SoPX || inv.SoPN);
-      // exportInvoices là alias cho relatedInvoices, dùng cho các thống kê phía dưới
-      const exportInvoices = relatedInvoices;
+      const salesInvoices = relatedInvoices.filter((inv) => inv.SoPX);
+      const purchaseInvoices = relatedInvoices.filter((inv) => inv.SoPN);
+      const salesValid = salesInvoices.filter((inv) => inv.TrangThai !== "Đã hủy");
+      const purchaseValid = purchaseInvoices.filter((inv) => inv.TrangThai !== "Đã hủy");
+      const flowInvoices = relatedInvoices.filter((inv) => inv.TrangThai !== "Đã hủy");
 
       // 1. Doanh số bán hàng (trừ đơn hủy)
-      const doanhSoBanHang = relatedInvoices
-        .filter((inv) => inv.TrangThai !== "Đã hủy")
-        .reduce((sum, inv) => sum + toNumber(inv.TongTien), 0);
+      const doanhSoBanHang = salesValid.reduce((sum, inv) => sum + toNumber(inv.TongTien), 0);
 
       // 2. Doanh thu thực tế (Đã thanh toán)
-      const doanhThuThucTe = relatedInvoices
+      const doanhThuThucTe = salesValid
         .filter((inv) => inv.TrangThai === "Đã thanh toán")
         .reduce((sum, inv) => sum + toNumber(inv.TongTien), 0);
 
       // 3. Công nợ khách hàng (Chưa thanh toán)
-      const congNoKhachHang = relatedInvoices
+      const congNoKhachHang = salesValid
         .filter((inv) => inv.TrangThai === "Chưa thanh toán")
         .reduce((sum, inv) => sum + toNumber(inv.TongTien), 0);
 
@@ -133,7 +223,7 @@ export default function Home() {
       const dayMap = new Map<string, number>();
       const yearMap = new Map<string, number>();
 
-      for (const inv of exportInvoices) {
+      for (const inv of salesValid) {
         const d = parseDate(inv.NgayLap as any);
         if (!d) continue;
         const amount = toNumber(inv.TongTien);
@@ -182,7 +272,7 @@ export default function Home() {
       start.setDate(start.getDate() - 6);
 
       const flowMap = new Map<string, { nhap: number; xuat: number }>();
-      for (const inv of exportInvoices) {
+      for (const inv of flowInvoices) {
         const d = parseDate(inv.NgayLap as any);
         if (!d || d < start) continue;
         const key = d.toISOString().slice(0, 10);
@@ -202,21 +292,18 @@ export default function Home() {
         }));
       setFlowData(flowArr);
 
-      const totalExport = exportInvoices
-        .filter((i) => i.SoPX)
-        .reduce((s, i) => s + toNumber(i.TongTien), 0);
-      const totalImport = exportInvoices
-        .filter((i) => i.SoPN)
-        .reduce((s, i) => s + toNumber(i.TongTien), 0);
+      const totalExport = salesValid.reduce((s, i) => s + toNumber(i.TongTien), 0);
+      const totalImport = purchaseValid.reduce((s, i) => s + toNumber(i.TongTien), 0);
       setRevPie([
         { name: "Doanh thu bán hàng", value: totalExport },
-        { name: "Giá trị hóa đơn nhập", value: totalImport },
+        { name: "Tổng giá trị hóa đơn nhập", value: totalImport },
       ]);
 
       if (!topSellRes.error) {
         setTopSelling(topSellRes.data || []);
       }
       if (!anomalyRes.error) {
+        setAnomalyMeta(anomalyRes.meta || null);
         setAnomalyItems(anomalyRes.data || []);
       }
     } catch (err) {
@@ -455,8 +542,8 @@ export default function Home() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Revenue Distribution */}
           <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
-            <h2 className="font-semibold text-gray-900 mb-1">Phân Bổ Doanh Thu & Chi Phí</h2>
-            <p className="text-sm text-gray-500 mb-4">Tỷ lệ giữa xuất và nhập</p>
+            <h2 className="font-semibold text-gray-900 mb-1">So sánh Doanh thu vs Tổng giá trị nhập</h2>
+            <div className="h-2" />
 
             <div className="h-52">
               <ResponsiveContainer width="100%" height="100%">
@@ -524,10 +611,11 @@ export default function Home() {
                     tickFormatter={(v) => `₫${(v / 1000000).toFixed(0)}M`}
                   />
                   <Tooltip
-                    formatter={(value: number, name) => [
+                    formatter={(value: number, _name, item) => [
                       `${value.toLocaleString("vi-VN")} ₫`,
-                      name === "nhap" ? "Nhập hàng" : "Xuất hàng",
+                      item?.dataKey === "nhap" ? "Nhập hàng" : "Xuất hàng",
                     ]}
+                    labelFormatter={(label) => `Ngày ${label}`}
                   />
                   <Bar
                     name="Xuất hàng"
@@ -575,7 +663,11 @@ export default function Home() {
               {topSelling.length > 0 ? (
                 <div className="divide-y divide-gray-100">
                   {topSelling.slice(0, 5).map((product) => (
-                    <div key={product.mahh} className="p-4 hover:bg-gray-50">
+                    <Link
+                      key={product.mahh}
+                      href={`/hang-hoa?q=${encodeURIComponent(product.mahh)}&page=1&limit=10`}
+                      className="block p-4 hover:bg-gray-50"
+                    >
                       <div className="flex items-center justify-between mb-2">
                         <div>
                           <div className="font-medium text-sm text-gray-900">{product.mahh}</div>
@@ -591,7 +683,7 @@ export default function Home() {
                         <span>Đã bán: {product.qty.toLocaleString()}</span>
                         <span>Doanh thu: {(product.revenue / 1000000).toFixed(1)}M</span>
                       </div>
-                    </div>
+                    </Link>
                   ))}
                 </div>
               ) : (
@@ -614,7 +706,7 @@ export default function Home() {
                   <div className="p-1.5 bg-red-100 rounded-lg">
                     <AlertTriangle className="w-4 h-4 text-red-600" />
                   </div>
-                  <h2 className="font-semibold text-gray-900">Hàng Sắp Hết</h2>
+                  <Link href="/hang-hoa?lowStock=1" className="font-semibold text-gray-900 hover:underline">Hàng Sắp Hết</Link>
                 </div>
                 <span className="px-2 py-1 bg-red-50 text-red-700 text-xs font-medium rounded">
                   {sapHet.length} mặt hàng
@@ -627,7 +719,11 @@ export default function Home() {
               {sapHet.length > 0 ? (
                 <div className="divide-y divide-gray-100">
                   {sapHet.slice(0, 5).map((item) => (
-                    <div key={item.MaHH} className="p-3 hover:bg-gray-50">
+                    <Link
+                      key={item.MaHH}
+                      href={`/hang-hoa?q=${encodeURIComponent(item.MaHH)}&page=1&limit=10&lowStock=1`}
+                      className="block p-3 hover:bg-gray-50"
+                    >
                       <div className="flex items-center justify-between">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
@@ -645,7 +741,7 @@ export default function Home() {
                           {item.SoLuongTon || 0}
                         </span>
                       </div>
-                    </div>
+                    </Link>
                   ))}
                 </div>
               ) : (
@@ -671,14 +767,21 @@ export default function Home() {
                   {anomalyItems.length} cảnh báo
                 </span>
               </div>
-              <p className="text-xs text-gray-500 mt-1">Xuất/nhập cao bất thường</p>
+              <p className="text-xs text-gray-500 mt-1">
+                Cảnh báo theo ngưỡng động (7 ngày gần nhất); xem chi tiết trong modal. Lịch sử hiển thị tối đa 50 dòng.
+              </p>
             </div>
 
             <div className="max-h-60 overflow-y-auto">
               {anomalyItems.length > 0 ? (
                 <div className="divide-y divide-gray-100">
                   {anomalyItems.slice(0, 5).map((item) => (
-                    <div key={item.mahh} className="p-3 hover:bg-gray-50">
+                    <button
+                      key={item.mahh}
+                      type="button"
+                      onClick={() => setSelectedAnomaly(item)}
+                      className="block w-full text-left p-3 hover:bg-gray-50 focus:outline-none"
+                    >
                       <div className="flex items-center justify-between">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
@@ -690,6 +793,14 @@ export default function Home() {
                           <div className="text-xs text-gray-500 mt-1">
                             Tồn: {(item.ton ?? 0).toLocaleString()}
                           </div>
+                          <div className="text-[11px] text-gray-500 mt-1 space-y-1">
+                            {item.nhapHigh && (
+                              <div>Nhập: {item.nhapToday.toLocaleString()} (TB7: {item.avgNhap7d.toFixed(1)} | {item.ratioNhap.toFixed(1)}x)</div>
+                            )}
+                            {item.xuatHigh && (
+                              <div>Xuất: {item.xuatToday.toLocaleString()} (TB7: {item.avgXuat7d.toFixed(1)} | {item.ratioXuat.toFixed(1)}x)</div>
+                            )}
+                          </div>
                         </div>
                         <span className="px-2 py-1 bg-orange-50 text-orange-700 text-xs font-medium rounded whitespace-nowrap">
                           {item.nhapHigh && item.xuatHigh
@@ -699,7 +810,7 @@ export default function Home() {
                             : "Nhập cao"}
                         </span>
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               ) : (
@@ -732,6 +843,182 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      {/* Anomaly detail modal */}
+      {selectedAnomaly && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-5">
+            {(() => {
+              const isNhap = selectedAnomaly.nhapHigh;
+              const isXuat = selectedAnomaly.xuatHigh;
+              const badgeColor = isNhap && isXuat ? "bg-gradient-to-r from-blue-500 to-amber-500" : isNhap ? "bg-blue-500" : "bg-amber-500";
+              const badgeText = isNhap && isXuat ? "Nhập & Xuất bất thường" : isNhap ? "Nhập bất thường" : "Xuất bất thường";
+              return (
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <div className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-semibold text-white ${badgeColor}`}>
+                      {badgeText}
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900 mt-2">
+                      Cảnh báo bất thường - {selectedAnomaly.mahh} {selectedAnomaly.tenhh || ""}
+                    </h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedAnomaly(null)}
+                    className="text-gray-500 hover:text-gray-700 text-sm"
+                  >
+                    Đóng
+                  </button>
+                </div>
+              );
+            })()}
+
+            {/* Tabs */}
+            <div className="mt-3 flex items-center gap-2 text-sm">
+              {[
+                { key: "info", label: "Thông tin chung" },
+                { key: "history", label: "Thẻ kho / Lịch sử" },
+              ].map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={async () => {
+                    setAnomalyTab(tab.key as any);
+                    if (tab.key === "history" && selectedAnomaly) {
+                      await loadHistory(selectedAnomaly.mahh);
+                    }
+                  }}
+                  className={`px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors ${
+                    anomalyTab === tab.key
+                      ? "bg-blue-50 border-blue-200 text-blue-700"
+                      : "bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {anomalyTab === "info" && (
+              <div className="mt-3 space-y-3 text-sm text-gray-800">
+                <div>
+                  <span className="text-gray-600">Tồn kho hiện tại: </span>
+                  <span className="font-semibold">{formatNumber(selectedAnomaly.ton ?? 0)}</span>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="text-gray-600">Vấn đề:</div>
+                  {selectedAnomaly.nhapHigh && (
+                    <div className="rounded-lg border border-blue-100 bg-blue-50 p-3 text-blue-800">
+                      Nhập kho đột biến
+                      <div className="mt-1 text-gray-700">
+                        <div>Hôm nay nhập: <span className="font-semibold">{formatNumber(selectedAnomaly.nhapToday)}</span></div>
+                        <div>Trung bình 7 ngày qua: <span className="font-semibold">{selectedAnomaly.avgNhap7d.toFixed(1)}</span></div>
+                        <div className="mt-1 text-sm">Cao gấp {selectedAnomaly.ratioNhap.toFixed(1)} lần mức bình thường.</div>
+                      </div>
+                    </div>
+                  )}
+                  {selectedAnomaly.xuatHigh && (
+                    <div className="rounded-lg border border-amber-100 bg-amber-50 p-3 text-amber-800">
+                      Xuất kho đột biến
+                      <div className="mt-1 text-gray-700">
+                        <div>Hôm nay xuất: <span className="font-semibold">{formatNumber(selectedAnomaly.xuatToday)}</span></div>
+                        <div>Trung bình 7 ngày qua: <span className="font-semibold">{selectedAnomaly.avgXuat7d.toFixed(1)}</span></div>
+                        <div className="mt-1 text-sm">Cao gấp {selectedAnomaly.ratioXuat.toFixed(1)} lần mức bình thường.</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {anomalyTab === "history" && (
+              <div className="mt-4">
+                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                  <div className="grid grid-cols-5 bg-gray-50 text-gray-600 text-xs font-semibold px-3 py-2">
+                    <div>Thời gian</div>
+                    <div>Loại</div>
+                    <div className="text-right">SL</div>
+                    <div className="text-right">Tồn cuối</div>
+                    <div>Người thực hiện</div>
+                  </div>
+                  <div className="max-h-56 overflow-y-auto divide-y divide-gray-100">
+                    {historyLoading ? (
+                      <div className="px-3 py-3 text-sm text-gray-500">Đang tải lịch sử...</div>
+                    ) : historyRows.length === 0 ? (
+                      <div className="px-3 py-3 text-sm text-gray-500">Chưa có dữ liệu lịch sử.</div>
+                    ) : (
+                      historyRows
+                        .filter((row) => {
+                          const meta: any = anomalyMeta || {};
+                          const minNhap = meta.minNhapQty ?? 20;
+                          const minXuat = meta.minXuatQty ?? 20;
+                          const hardXuat = meta.hardXuatQty ?? 50;
+                          if (selectedAnomaly?.nhapHigh && !selectedAnomaly?.xuatHigh) {
+                            return row.qty > 0 && row.qty >= minNhap;
+                          }
+                          if (selectedAnomaly?.xuatHigh && !selectedAnomaly?.nhapHigh) {
+                            const abs = Math.abs(row.qty);
+                            return row.qty < 0 && (abs >= hardXuat || abs >= minXuat);
+                          }
+                          // cả hai: áp dụng ngưỡng riêng cho nhập/xuất
+                          if (row.qty > 0) return row.qty >= minNhap;
+                          const abs = Math.abs(row.qty);
+                          return abs >= hardXuat || abs >= minXuat;
+                        })
+                        .map((row, idx) => (
+                        <div
+                          key={idx}
+                          className="grid grid-cols-5 items-center px-3 py-2 text-sm text-gray-800"
+                        >
+                          <div className="text-xs text-gray-600">{formatDateTime(row.time)}</div>
+                          <div>{row.type}</div>
+                          <div
+                            className={`text-right font-semibold ${
+                              row.qty > 0
+                                ? 'text-emerald-700'
+                                : 'text-red-600'
+                            }`}
+                          >
+                            {row.qty > 0 ? `+${row.qty}` : row.qty}
+                          </div>
+                          <div className="text-right">
+                            {row.ending == null ? '—' : formatNumber(row.ending)}
+                          </div>
+                          <div className="text-xs text-gray-600">{row.actor || "—"}</div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="mt-4 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={async () => {
+                  setAnomalyTab("history");
+                  if (selectedAnomaly) {
+                    await loadHistory(selectedAnomaly.mahh);
+                  }
+                }}
+                className="text-xs text-blue-600 hover:text-blue-700 underline"
+              >
+                Xem lịch sử giao dịch mã này
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedAnomaly(null)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+              >
+                Đã hiểu
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

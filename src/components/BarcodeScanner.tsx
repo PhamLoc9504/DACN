@@ -2,7 +2,7 @@
 
 import type React from 'react';
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { Html5Qrcode } from 'html5-qrcode';
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import Button from './Button';
 
 // Kiểm tra trình duyệt hỗ trợ camera (html5-qrcode sẽ tự xử lý phần còn lại)
@@ -106,7 +106,24 @@ export function BarcodeScanner({ open, onClose, onScan }: BarcodeScannerProps) {
 
       // Khởi tạo html5-qrcode với container ID
       if (!html5QrCodeRef.current) {
-        html5QrCodeRef.current = new Html5Qrcode(containerId);
+        html5QrCodeRef.current = new Html5Qrcode(containerId, {
+          verbose: false,
+          // Hỗ trợ barcode (không chỉ QR)
+          formatsToSupport: [
+            Html5QrcodeSupportedFormats.CODE_128,
+            Html5QrcodeSupportedFormats.CODE_39,
+            Html5QrcodeSupportedFormats.CODE_93,
+            Html5QrcodeSupportedFormats.EAN_13,
+            Html5QrcodeSupportedFormats.EAN_8,
+            Html5QrcodeSupportedFormats.UPC_A,
+            Html5QrcodeSupportedFormats.UPC_E,
+            Html5QrcodeSupportedFormats.QR_CODE,
+          ],
+          // Ưu tiên BarCodeDetector của trình duyệt nếu có (tốt cho mã vạch)
+          experimentalFeatures: {
+            useBarCodeDetectorIfSupported: true,
+          },
+        });
       }
 
       const config = {
@@ -185,9 +202,24 @@ export function BarcodeScanner({ open, onClose, onScan }: BarcodeScannerProps) {
       try {
         setError(null);
 
-        // Đảm bảo có instance
+        // Đảm bảo có instance (với formatsToSupport cho barcode)
         if (!html5QrCodeRef.current) {
-          html5QrCodeRef.current = new Html5Qrcode(containerId);
+          html5QrCodeRef.current = new Html5Qrcode(containerId, {
+            verbose: false,
+            formatsToSupport: [
+              Html5QrcodeSupportedFormats.CODE_128,
+              Html5QrcodeSupportedFormats.CODE_39,
+              Html5QrcodeSupportedFormats.CODE_93,
+              Html5QrcodeSupportedFormats.EAN_13,
+              Html5QrcodeSupportedFormats.EAN_8,
+              Html5QrcodeSupportedFormats.UPC_A,
+              Html5QrcodeSupportedFormats.UPC_E,
+              Html5QrcodeSupportedFormats.QR_CODE,
+            ],
+            experimentalFeatures: {
+              useBarCodeDetectorIfSupported: true,
+            },
+          });
         }
 
         const instance = html5QrCodeRef.current;
@@ -202,27 +234,38 @@ export function BarcodeScanner({ open, onClose, onScan }: BarcodeScannerProps) {
           isScanningRef.current = false;
         }
 
-        // Quét từ file (hiển thị ảnh trong container)
-        const result: any = await instance.scanFile(file, true);
-        const decodedText = result?.decodedText ?? result?.text ?? '';
+        const parseText = (res: any) => {
+          if (!res) return '';
+          if (typeof res === 'string') return res;
+          return res.decodedText ?? res.text ?? '';
+        };
 
-        if (decodedText) {
-          setScannedBarcode(decodedText);
-          onScan(decodedText);
-        } else {
-          setError('Không đọc được mã từ hình ảnh. Vui lòng thử hình khác hoặc rõ nét hơn.');
+        let decoded = '';
+        try {
+          const res1 = await instance.scanFile(file, true);
+          decoded = parseText(res1);
+        } catch (e) {
+          console.warn('scanFile hiển thị ảnh thất bại, thử không preview:', e);
         }
-      } catch (err: any) {
-        const message = typeof err === 'string' ? err : err?.message || '';
 
-        // Trường hợp phổ biến: ảnh không có mã hoặc mã quá mờ -> NotFoundException
-        if (message.includes('No MultiFormat Readers were able to detect the code') || err?.name === 'NotFoundException') {
-          console.warn('Không tìm thấy mã trong hình (ảnh có thể không chứa mã hoặc quá mờ).');
-          setError('Không đọc được mã trong hình. Hãy thử chọn hình khác rõ hơn, phóng to vùng mã vạch/QR.');
-        } else {
-          console.error('Lỗi khi quét mã từ file ảnh:', err);
-          setError('Không thể đọc mã từ file ảnh. Vui lòng thử lại.');
+        if (!decoded) {
+          try {
+            const res2 = await instance.scanFile(file, false);
+            decoded = parseText(res2);
+          } catch (e) {
+            console.warn('scanFile không preview cũng thất bại:', e);
+          }
         }
+
+        if (decoded) {
+          onScan(decoded);
+          setScannedBarcode(decoded);
+        } else {
+          setError('Không đọc được mã trong hình. Hãy thử ảnh rõ hơn, mã chiếm phần lớn khung, hoặc dùng camera.');
+        }
+      } catch (err) {
+        console.error('Lỗi khi quét mã từ file ảnh:', err);
+        setError('Không thể đọc mã từ file ảnh. Vui lòng thử lại.');
       } finally {
         // Reset input để lần sau có thể chọn lại cùng một file nếu cần
         if (event.target) {

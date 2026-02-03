@@ -86,24 +86,32 @@ export function formatVietnamDateTime(dateString: string | null | undefined): st
 	if (!dateString) return 'Chưa có';
 	try {
 		let dateStr = dateString.trim();
-		if (!dateStr.includes('Z') && !dateStr.match(/[+-]\d{2}:?\d{2}$/)) {
-			dateStr = dateStr + 'Z';
+
+		// Chỉ có ngày -> trả về ngày
+		if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+			return formatVietnamDate(dateStr);
 		}
-		
-		const date = new Date(dateStr);
+
+		// Parse: nếu có timezone thì giữ nguyên; nếu không, parse như local string
+		let date = new Date(dateStr);
+		if (isNaN(date.getTime()) && !dateStr.match(/[+-]\d{2}:?\d{2}$/) && !dateStr.endsWith('Z')) {
+			// thử parse như UTC nếu lần đầu thất bại
+			date = new Date(dateStr + 'Z');
+		}
 		if (isNaN(date.getTime())) return 'Invalid Date';
-		
-		const utcTimestamp = date.getTime();
-		const vietnamTimestamp = utcTimestamp + (7 * 60 * 60 * 1000);
-		const vietnamDate = new Date(vietnamTimestamp);
-		
-		const hours = String(vietnamDate.getUTCHours()).padStart(2, '0');
-		const minutes = String(vietnamDate.getUTCMinutes()).padStart(2, '0');
-		const day = String(vietnamDate.getUTCDate()).padStart(2, '0');
-		const month = String(vietnamDate.getUTCMonth() + 1).padStart(2, '0');
-		const year = vietnamDate.getUTCFullYear();
-		
-		return `${hours}:${minutes} ${day}/${month}/${year}`;
+
+		const parts = new Intl.DateTimeFormat('vi-VN', {
+			timeZone: 'Asia/Ho_Chi_Minh',
+			year: 'numeric',
+			month: '2-digit',
+			day: '2-digit',
+			hour: '2-digit',
+			minute: '2-digit',
+			hour12: false,
+		}).formatToParts(date);
+		const get = (type: string) => parts.find((p) => p.type === type)?.value || '00';
+
+		return `${get('hour')}:${get('minute')} ${get('day')}/${get('month')}/${get('year')}`;
 	} catch (err) {
 		return 'Invalid Date';
 	}

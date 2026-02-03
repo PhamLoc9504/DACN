@@ -1,12 +1,15 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+
 import Pagination from '@/components/Pagination';
 import Modal from '@/components/Modal';
 import Button from '@/components/Button';
-import { formatVietnamDate } from '@/lib/dateUtils';
+import { formatVietnamDate, formatVietnamDateTime } from '@/lib/dateUtils';
+
 import ErrorDisplay from '@/components/ErrorDisplay';
 import { handleApiError, formatErrorForDisplay } from '@/lib/errorHandler';
+import { BarcodeScanner } from '@/components/BarcodeScanner';
 
 import { 
   CheckCircle, 
@@ -29,7 +32,10 @@ import {
   ArrowRight,
   Check,
   X,
-  MoreVertical
+  MoreVertical,
+  Barcode,
+  Tag,
+  Calculator
 } from 'lucide-react';
 
 type Row = {
@@ -38,6 +44,8 @@ type Row = {
   MaNV: string | null;
   MaNCC: string | null;
   TongTien?: number;
+  TenNCC?: string | null;
+  TenNV?: string | null;
 };
 
 type ChiTiet = {
@@ -51,15 +59,22 @@ type ChiTiet = {
 export default function NhapHangPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [nhaCCList, setNhaCCList] = useState<Array<{ MaNCC: string; TenNCC: string | null }>>([]);
+  const [nhanVienList, setNhanVienList] = useState<Array<{ MaNV: string; HoTen: string | null }>>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
+
   const [editing, setEditing] = useState<Row | null>(null);
   const [selectedPN, setSelectedPN] = useState<string | null>(null);
   const [chiTiet, setChiTiet] = useState<ChiTiet[]>([]);
   const [form, setForm] = useState({ NgayNhap: '', MaNV: '', MaNCC: '' });
-  const [products, setProducts] = useState<Array<{ MaHH: string; TenHH: string | null; DonGia: number | null }>>([]);
-  const [lines, setLines] = useState<Array<{ MaHH: string; SLNhap: number; DGNhap: number }>>([{ MaHH: '', SLNhap: 1, DGNhap: 0 }]);
+  const [products, setProducts] = useState<Array<{ MaHH: string; TenHH: string | null; DonGia: number | null; MaNCC?: string | null; NgaySanXuat?: string | null; NgayHetHan?: string | null }>>([]);
+  const [lines, setLines] = useState<Array<{ MaHH: string; SLNhap: number; DGNhap: number }>>([]);
+  const [showScanner, setShowScanner] = useState(false);
+  const [scanError, setScanError] = useState<string | null>(null);
+  const [scanToast, setScanToast] = useState<{ ma: string; ten?: string | null } | null>(null);
+  const [scannerKey, setScannerKey] = useState(0);
+
   const [q, setQ] = useState('');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
@@ -75,14 +90,67 @@ export default function NhapHangPage() {
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [error, setError] = useState<ReturnType<typeof formatErrorForDisplay> | null>(null);
 
+  function vietnamNowInput() {
+    const parts = new Intl.DateTimeFormat('sv-SE', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).formatToParts(new Date());
+    const get = (type: string) => parts.find((p) => p.type === type)?.value || '00';
+    return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}`;
+  }
+
+  function toInputValue(dateStr: string | null | undefined) {
+    if (!dateStr) return vietnamNowInput();
+    try {
+      const dt = new Date(dateStr);
+      if (isNaN(dt.getTime())) return vietnamNowInput();
+      const parts = new Intl.DateTimeFormat('sv-SE', {
+        timeZone: 'Asia/Ho_Chi_Minh',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      }).formatToParts(dt);
+      const get = (type: string) => parts.find((p) => p.type === type)?.value || '00';
+      return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}`;
+    } catch {
+      return vietnamNowInput();
+    }
+  }
+
+  const nccMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    nhaCCList.forEach((n) => {
+      if (n?.MaNCC) map[n.MaNCC] = n.TenNCC || n.MaNCC;
+    });
+    return map;
+  }, [nhaCCList]);
+
+  const nvMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    nhanVienList.forEach((nv) => {
+      if (nv?.MaNV) map[nv.MaNV] = nv.HoTen || nv.MaNV;
+    });
+    return map;
+  }, [nhanVienList]);
+
   useEffect(() => {
     loadData();
     loadNhaCC();
+    loadNhanVien();
   }, [q, fromDate, toDate, filterNCC, page, limit]);
 
   async function loadData() {
     setLoading(true);
     setError(null);
+
     const params = new URLSearchParams();
     if (q) params.set('q', q);
     if (fromDate) params.set('from', fromDate);
@@ -100,7 +168,14 @@ export default function NhapHangPage() {
         setLoading(false);
         return;
       }
-      setRows(res.data || []);
+      // map SoPN list with TenNCC/HoTen if API already provides
+      const data: Row[] = (res.data || []).map((r: any) => ({
+        ...r,
+        TenNCC: r.TenNCC,
+        TenNV: r.TenNV,
+      }));
+      setRows(data);
+
       setTotal(res.total || 0);
       setLoading(false);
     } catch (err) {
@@ -119,7 +194,16 @@ export default function NhapHangPage() {
     }
   }
 
-  async function loadChiTiet(sopn: string) {
+  async function loadNhanVien() {
+    const res = await fetch('/api/nhan-vien?limit=1000&page=1', {
+      credentials: 'include',
+    }).then((r) => r.json());
+    if (res.data) {
+      setNhanVienList(res.data);
+    }
+  }
+
+  async function loadChiTiet(sopn: string): Promise<ChiTiet[]> {
     try {
       const res = await fetch(`/api/phieu-nhap/${sopn}`, {
         credentials: 'include',
@@ -127,12 +211,15 @@ export default function NhapHangPage() {
       if (res.error) {
         const appError = handleApiError(res);
         setError(formatErrorForDisplay(appError));
-        return;
+        return [];
       }
-      setChiTiet(res.chiTiet || []);
+      const list = (res.chiTiet || []) as ChiTiet[];
+      setChiTiet(list);
+      return list;
     } catch (err) {
       const appError = handleApiError(err);
       setError(formatErrorForDisplay(appError));
+      return [];
     }
   }
 
@@ -142,7 +229,14 @@ export default function NhapHangPage() {
       const res = await fetch('/api/hang-hoa?limit=1000&page=1', {
         credentials: 'include',
       }).then((r) => r.json());
-      const list = (res.data || []).map((x: any) => ({ MaHH: x.MaHH, TenHH: x.TenHH, DonGia: x.DonGia || 0 }));
+      const list = (res.data || []).map((x: any) => ({
+        MaHH: x.MaHH,
+        TenHH: x.TenHH,
+        DonGia: x.DonGia || 0,
+        MaNCC: x.MaNCC || null,
+        NgaySanXuat: x.NgaySanXuat || x.ngaySanXuat || null,
+        NgayHetHan: x.NgayHetHan || x.ngayHetHan || null,
+      }));
       setProducts(list);
     })();
   }, [open, detailOpen]);
@@ -155,21 +249,117 @@ export default function NhapHangPage() {
     });
   }
 
+  function ensureProductInList(product: { MaHH: string; TenHH?: string | null; DonGia?: number | null }) {
+    setProducts((prev) => {
+      const exists = prev.some((p) => p.MaHH === product.MaHH);
+      if (exists) return prev;
+      return [...prev, { MaHH: product.MaHH, TenHH: product.TenHH || null, DonGia: product.DonGia ?? 0 }];
+    });
+  }
+
+  function applyScannedProduct(product: { MaHH: string; TenHH?: string | null; DonGia?: number | null }) {
+    ensureProductInList(product);
+    setLines((prev) => {
+      const idx = prev.findIndex((l) => l.MaHH === product.MaHH);
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = {
+          ...next[idx],
+          SLNhap: (next[idx].SLNhap || 0) + 1,
+          DGNhap: next[idx].DGNhap ?? product.DonGia ?? 0,
+        };
+        return next;
+      }
+      const emptyIdx = prev.findIndex((l) => !l.MaHH);
+      if (emptyIdx >= 0) {
+        const next = [...prev];
+        next[emptyIdx] = {
+          ...next[emptyIdx],
+          MaHH: product.MaHH,
+          SLNhap: next[emptyIdx].SLNhap || 1,
+          DGNhap: next[emptyIdx].DGNhap ?? product.DonGia ?? 0,
+        };
+        return next;
+      }
+      return [...prev, { MaHH: product.MaHH, SLNhap: 1, DGNhap: product.DonGia ?? 0 }];
+    });
+  }
+
+  async function handleBarcodeScanned(code: string) {
+    setScanError(null);
+    setScanToast(null);
+
+    // 1) Thử khớp ngay với danh sách products đã tải sẵn (MaHH)
+    const local = products.find(
+      (p) => p.MaHH?.toLowerCase() === code.toLowerCase()
+    );
+    if (local) {
+      applyScannedProduct(local);
+      setScanToast({ ma: local.MaHH, ten: local.TenHH || '' });
+      setTimeout(() => {
+        setScanToast(null);
+        setShowScanner(false);
+      }, 2000);
+      return;
+    }
+
+    // 2) Gọi API /scan theo barcode, fallback sang mahh nếu chưa có barcode trong DB
+    const tryLookup = async (param: string, value: string) => {
+      const res = await fetch(`/api/hang-hoa/scan?${param}=${encodeURIComponent(value)}`, {
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (res.ok && data?.data) return data.data;
+      return null;
+    };
+
+    try {
+      const byBarcode = await tryLookup('barcode', code);
+      const found = byBarcode ?? (await tryLookup('mahh', code));
+
+      if (!found) {
+        setScanError('Không tìm thấy hàng hóa cho mã này');
+        return;
+      }
+
+      applyScannedProduct(found);
+      setScanToast({ ma: found.MaHH, ten: found.TenHH || '' });
+      setTimeout(() => {
+        setScanToast(null);
+        setShowScanner(false);
+      }, 2000);
+    } catch (e) {
+      setScanError('Quét mã thất bại, vui lòng thử lại');
+    }
+  }
+
   function openCreateModal() {
     setEditing(null);
-    setForm({ NgayNhap: new Date().toISOString().split('T')[0], MaNV: '', MaNCC: '' });
-    setLines([{ MaHH: '', SLNhap: 1, DGNhap: 0 }]);
+    setForm({
+      NgayNhap: vietnamNowInput(),
+      MaNV: '',
+      MaNCC: '',
+    });
+    setLines([]);
     setOpen(true);
   }
 
-  function openEditModal(item: Row) {
+  async function openEditModal(item: Row) {
     setEditing(item);
     setForm({
-      NgayNhap: item.NgayNhap || new Date().toISOString().split('T')[0],
+      NgayNhap: toInputValue(item.NgayNhap),
       MaNV: item.MaNV || '',
       MaNCC: item.MaNCC || '',
     });
-    loadChiTiet(item.SoPN);
+
+    const list = await loadChiTiet(item.SoPN);
+    setLines(
+      (list || []).map((ct) => ({
+        MaHH: ct.MaHH,
+        SLNhap: Number(ct.SLNhap || 0),
+        DGNhap: Number(ct.DGNhap || 0),
+      }))
+    );
     setOpen(true);
   }
 
@@ -550,21 +740,25 @@ export default function NhapHangPage() {
                       
                       <td className="px-6 py-4">
                         <div className="text-sm text-gray-700">
-                          {item.NgayNhap ? formatVietnamDate(item.NgayNhap) : '-'}
+                          {item.NgayNhap ? formatVietnamDateTime(item.NgayNhap) : '-'}
                         </div>
                       </td>
                       
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
                           <User className="w-4 h-4 text-gray-400" />
-                          <span className="text-gray-700">{item.MaNV || '-'}</span>
+                          <span className="text-gray-700">
+                            {item.MaNV ? (item.TenNV || nvMap[item.MaNV] || item.MaNV) : '-'}
+                          </span>
                         </div>
                       </td>
                       
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
                           <Building className="w-4 h-4 text-gray-400" />
-                          <span className="text-gray-700">{item.MaNCC || '-'}</span>
+                          <span className="text-gray-700">
+                            {item.MaNCC ? (item.TenNCC || nccMap[item.MaNCC] || item.MaNCC) : '-'}
+                          </span>
                         </div>
                       </td>
                       
@@ -644,7 +838,7 @@ export default function NhapHangPage() {
         <form onSubmit={handleSubmit} className="space-y-6">
           {validationError && (
             <div className="bg-red-50 border border-red-200 p-4 rounded-lg">
-              <div className="flex items-center gap-2 text-red-800 font-medium mb-2">
+              <div className="flex items-center gap-3 text-red-800 font-medium mb-2">
                 <AlertTriangle className="w-5 h-5" />
                 Lỗi dữ liệu nhập vào
               </div>
@@ -659,7 +853,7 @@ export default function NhapHangPage() {
                 Ngày nhập *
               </label>
               <input
-                type="date"
+                type="datetime-local"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                 value={form.NgayNhap}
                 onChange={(e) => setForm({ ...form, NgayNhap: e.target.value })}
@@ -704,14 +898,29 @@ export default function NhapHangPage() {
             <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
               <div className="flex items-center justify-between">
                 <h3 className="font-semibold text-gray-800">Chi tiết hàng hóa</h3>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => setLines((prev) => [...prev, { MaHH: '', SLNhap: 1, DGNhap: 0 }])}
-                >
-                  <Plus className="w-4 h-4 mr-1" />
-                  Thêm hàng
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => setLines((prev) => [...prev, { MaHH: '', SLNhap: 1, DGNhap: 0 }])}
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    Thêm hàng
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="primary"
+                    onClick={() => {
+                      setScanError(null);
+                      setScannerKey((k) => k + 1); // reset scanner instance
+                      setShowScanner(true);
+                    }}
+                    className="flex items-center gap-2"
+                  >
+                    <Barcode className="w-4 h-4" />
+                    Quét mã
+                  </Button>
+                </div>
               </div>
             </div>
             
@@ -754,6 +963,11 @@ export default function NhapHangPage() {
                               </option>
                             ))}
                           </select>
+                          {product && (
+                            <div className="text-xs text-gray-500 mt-1">
+                              {product.TenHH || product.MaHH}
+                            </div>
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           <input
@@ -847,7 +1061,7 @@ export default function NhapHangPage() {
                 <div className="text-sm text-blue-100/80 mb-1">Ngày nhập</div>
                 <div className="text-lg font-semibold">
                   {rows.find(r => r.SoPN === selectedPN)?.NgayNhap 
-                    ? formatVietnamDate(rows.find(r => r.SoPN === selectedPN)!.NgayNhap!)
+                    ? formatVietnamDateTime(rows.find(r => r.SoPN === selectedPN)!.NgayNhap!)
                     : '-'}
                 </div>
               </div>
@@ -856,101 +1070,148 @@ export default function NhapHangPage() {
 
           {/* Info Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white border border-gray-200 rounded-xl p-4">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 bg-blue-50 rounded-lg">
-                  <User className="w-5 h-5 text-blue-600" />
+            <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-start gap-3">
+              <div className="p-2 bg-blue-50 rounded-lg">
+                <User className="w-5 h-5 text-blue-600" />
+              </div>
+              <div>
+                <div className="text-sm text-gray-500">Nhân viên</div>
+                <div className="font-semibold text-gray-900">
+                  {(() => {
+                    const ma = rows.find(r => r.SoPN === selectedPN)?.MaNV;
+                    if (!ma) return '-';
+                    return nvMap[ma] || ma;
+                  })()}
                 </div>
-                <div>
-                  <div className="text-sm text-gray-500">Nhân viên</div>
-                  <div className="font-medium text-gray-900">
-                    {rows.find(r => r.SoPN === selectedPN)?.MaNV || '-'}
-                  </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  {rows.find(r => r.SoPN === selectedPN)?.MaNV || ''}
                 </div>
               </div>
             </div>
 
-            <div className="bg-white border border-gray-200 rounded-xl p-4">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 bg-green-50 rounded-lg">
-                  <Building className="w-5 h-5 text-green-600" />
+            <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-start gap-3">
+              <div className="p-2 bg-green-50 rounded-lg">
+                <Building className="w-5 h-5 text-green-600" />
+              </div>
+              <div>
+                <div className="text-sm text-gray-500">Nhà cung cấp</div>
+                <div className="font-semibold text-gray-900">
+                  {(() => {
+                    const ma = rows.find(r => r.SoPN === selectedPN)?.MaNCC;
+                    if (!ma) return '-';
+                    return nccMap[ma] || ma;
+                  })()}
                 </div>
-                <div>
-                  <div className="text-sm text-gray-500">Nhà cung cấp</div>
-                  <div className="font-medium text-gray-900">
-                    {rows.find(r => r.SoPN === selectedPN)?.MaNCC || '-'}
-                  </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  {rows.find(r => r.SoPN === selectedPN)?.MaNCC || ''}
                 </div>
               </div>
             </div>
 
-            <div className="bg-white border border-gray-200 rounded-xl p-4">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 bg-purple-50 rounded-lg">
-                  <DollarSign className="w-5 h-5 text-purple-600" />
-                </div>
-                <div>
-                  <div className="text-sm text-gray-500">Tổng tiền</div>
-                  <div className="text-xl font-bold text-gray-900">
-                    {tongTien.toLocaleString('vi-VN')} ₫
-                  </div>
+            <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-start gap-3">
+              <div className="p-2 bg-purple-50 rounded-lg">
+                <DollarSign className="w-5 h-5 text-purple-600" />
+              </div>
+              <div>
+                <div className="text-sm text-gray-500">Tổng tiền</div>
+                <div className="text-xl font-bold text-gray-900">
+                  {tongTien.toLocaleString('vi-VN')} ₫
                 </div>
               </div>
             </div>
           </div>
 
           {/* Product Details */}
-          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-            <div className="border-b border-gray-200 bg-gray-50 px-6 py-4">
-              <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-gray-800">Chi tiết hàng hóa ({chiTiet.length} sản phẩm)</h3>
+          <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden transition-all duration-300 hover:shadow-xl">
+            {/* Header */}
+            <div className="px-6 py-5 border-b border-gray-100 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-indigo-50 rounded-lg text-indigo-600">
+                  <Package size={24} strokeWidth={1.5} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-800 text-lg">Chi tiết đơn hàng</h3>
+                  <div className="flex items-center gap-2 text-sm text-gray-500 mt-0.5">
+                    <span className="flex items-center gap-1">
+                      <Tag size={14} /> {chiTiet.length} sản phẩm
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div className="hidden sm:flex flex-col items-end">
+                <span className="text-xs text-gray-400 uppercase font-semibold tracking-wider">Tổng giá trị</span>
+                <span className="text-xl font-bold text-indigo-600 font-mono">
+                  {tongTien.toLocaleString('vi-VN')} ₫
+                </span>
               </div>
             </div>
-            
+
+            {/* Table */}
             <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">STT</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Mã hàng</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Tên hàng</th>
-                    <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase">SL nhập</th>
-                    <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase">Đơn giá</th>
-                    <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase">Thành tiền</th>
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-gray-50/50 border-b border-gray-100">
+                    <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider w-12">STT</th>
+                    <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Sản phẩm</th>
+                    <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Đơn giá</th>
+                    <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">SL</th>
+                    <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Thành tiền</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200">
+                <tbody className="divide-y divide-gray-50">
                   {chiTiet.map((item, index) => (
-                    <tr key={index} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-sm text-gray-600">{index + 1}</td>
+                    <tr 
+                      key={index} 
+                      className="group hover:bg-indigo-50/30 transition-colors duration-200"
+                    >
+                      <td className="px-6 py-4 text-sm text-gray-400 font-medium group-hover:text-indigo-500">
+                        {String(index + 1).padStart(2, '0')}
+                      </td>
                       <td className="px-6 py-4">
-                        <div className="font-medium text-gray-900">{item.MaHH}</div>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-semibold text-gray-800 group-hover:text-indigo-700 transition-colors">
+                            {item.TenHH || 'Sản phẩm chưa đặt tên'}
+                          </span>
+                          <span className="text-xs text-gray-400 font-mono mt-0.5">
+                            Mã: {item.MaHH}
+                          </span>
+                        </div>
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-700">{item.TenHH || '-'}</td>
-                      <td className="px-6 py-4 text-sm text-right text-gray-600">{item.SLNhap}</td>
-                      <td className="px-6 py-4 text-sm text-right text-gray-700">
-                        {Number(item.DGNhap).toLocaleString('vi-VN')} ₫
+                      <td className="px-6 py-4 text-sm text-gray-600 text-right font-medium">
+                        {Number(item.DGNhap).toLocaleString('vi-VN')}
                       </td>
-                      <td className="px-6 py-4 text-sm text-right font-semibold text-gray-900">
+                      <td className="px-6 py-4 text-sm text-gray-800 text-right">
+                        <span className="inline-block px-2.5 py-0.5 rounded-md bg-gray-100 text-gray-700 font-medium text-xs">
+                          x{item.SLNhap}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-sm font-bold text-gray-900 text-right">
                         {Number(item.TongTien).toLocaleString('vi-VN')} ₫
                       </td>
                     </tr>
                   ))}
                 </tbody>
-                <tfoot className="bg-gray-50">
-                  <tr>
-                    <td colSpan={5} className="px-6 py-4 text-right font-bold text-gray-800">
-                      TỔNG TIỀN
-                    </td>
-                    <td className="px-6 py-4 text-right font-bold text-xl text-blue-600">
-                      {tongTien.toLocaleString('vi-VN')} ₫
-                    </td>
-                  </tr>
-                </tfoot>
               </table>
             </div>
-          </div>
 
+            {/* Footer summary */}
+            <div className="bg-gray-50 px-6 py-5 border-t border-gray-100">
+              <div className="flex flex-col sm:flex-row justify-end items-end sm:items-center gap-4 sm:gap-12">
+                <div className="text-right">
+                  <p className="text-sm text-gray-500 mb-1">Số lượng mặt hàng</p>
+                  <p className="text-base font-medium text-gray-800">{chiTiet.length}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm text-gray-500 mb-1">Tổng cộng</p>
+                  <div className="flex items-center justify-end gap-2 text-2xl font-bold text-indigo-600">
+                    <Calculator size={20} className="mb-1 opacity-50" />
+                    {tongTien.toLocaleString('vi-VN')} ₫
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+ 
           {/* Actions */}
           <div className="flex items-center justify-end gap-3 pt-6 border-t border-gray-200">
             <Button
@@ -987,7 +1248,7 @@ export default function NhapHangPage() {
       >
         {pendingSubmit && (
           <div className="space-y-6">
-            <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl">
+            <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
               <div className="flex items-center gap-3">
                 <CheckCircle className="w-6 h-6 text-blue-600" />
                 <div>
@@ -1106,6 +1367,14 @@ export default function NhapHangPage() {
           </div>
         )}
       </Modal>
+
+      {/* Scanner Modal */}
+      <BarcodeScanner
+        key={scannerKey}
+        open={showScanner}
+        onClose={() => setShowScanner(false)}
+        onScan={handleBarcodeScanned}
+      />
     </div>
   );
 }

@@ -3,6 +3,10 @@ import { getServerSupabase } from '@/lib/supabaseClient';
 import { getSessionFromCookies } from '@/lib/session';
 import { logCRUD, logActivity } from '@/lib/auditLog';
 
+function todayVietnamDate() {
+	return new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' }); // yyyy-mm-dd
+}
+
 // Body: { phieu: { SoPX, NgayXuat, MaNV }, chitiet: [{ MaHH, SLXuat, DonGia }] }
 export async function POST(req: Request) {
 	try {
@@ -124,11 +128,20 @@ export async function POST(req: Request) {
 			);
 		}
 
-		// Lưu thông tin phiếu xuất hàng (Save export slip information)
+		// Lưu thông tin phiếu xuất hàng (Pending, chưa trừ kho). Không ép buộc cột trangthai nếu DB không có.
+		// Chuẩn hóa ngày xuất: nếu không truyền hoặc truyền rỗng, dùng ngày VN hôm nay
+		const ngayXuat = phieu?.NgayXuat ? String(phieu.NgayXuat) : todayVietnamDate();
+
+		const insertPhieu: any = {
+			sopx: soPX,
+			// Default to Vietnam local date to avoid UTC-1 day shift
+			ngayxuat: ngayXuat,
+			manv: maNV,
+		};
 		const { data: newPhieu, error: errPX } = await supabase
 			.from('phieuxuat')
-			.insert([{ sopx: soPX, ngayxuat: phieu.NgayXuat ?? null, manv: maNV }])
-			.select()
+			.insert([insertPhieu])
+			.select('sopx, ngayxuat, manv') // Chỉ trả về cột chắc chắn tồn tại
 			.single();
 
 		if (errPX) {
@@ -142,17 +155,8 @@ export async function POST(req: Request) {
 			throw errPX;
 		}
 
-		// Lưu chi tiết và cập nhật tồn kho
+		// Chỉ lưu chi tiết, CHƯA trừ kho (tạm giữ)
 		for (const row of chitiet) {
-			// Lấy lại tồn kho hiện tại
-			const { data: cur } = await supabase
-				.from('hanghoa')
-				.select('soluongton')
-				.eq('mahh', row.MaHH)
-				.maybeSingle();
-			const current = cur?.soluongton || 0;
-
-			// Lưu chi tiết
 			const { error: errCT } = await supabase.from('ctphieuxuat').insert([
 				{
 					sopx: soPX,
@@ -167,17 +171,6 @@ export async function POST(req: Request) {
 				// Rollback: Xóa phiếu xuất đã tạo
 				await supabase.from('phieuxuat').delete().eq('sopx', soPX);
 				throw errCT;
-			}
-
-			// Cập nhật số lượng tồn kho (Update inventory quantity)
-			const newQty = current - (row.SLXuat || 0);
-			const { error: errUpd } = await supabase.from('hanghoa').update({ soluongton: newQty }).eq('mahh', row.MaHH);
-
-			if (errUpd) {
-				// Rollback: Xóa phiếu xuất và chi tiết đã tạo
-				await supabase.from('ctphieuxuat').delete().eq('sopx', soPX);
-				await supabase.from('phieuxuat').delete().eq('sopx', soPX);
-				throw errUpd;
 			}
 		}
 
@@ -220,7 +213,8 @@ export async function POST(req: Request) {
 					.from('hoadon')
 					.insert({
 						mahd: maHD,
-						ngaylap: phieu.NgayXuat || new Date().toISOString().split('T')[0],
+						// Use Vietnam local date when absent to avoid off-by-1-day (UTC)
+						ngaylap: ngayXuat,
 						makh: phieu.MaKH,
 						tongtien: tongTien,
 						trangthai: 'Chưa thanh toán',

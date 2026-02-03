@@ -141,7 +141,8 @@ export default function FaceSignModal({ open, onClose, onSuccess }: FaceSignModa
                             autoPlay
                             muted
                             playsInline
-                            className="w-full h-full object-cover"
+                            // Lật gương để trải nghiệm quét đúng hướng
+                            className="w-full h-full object-cover [transform:scaleX(-1)]"
                         />
                     </div>
                     <p className="mt-3 text-xs text-gray-700 text-center min-h-[1.5rem]">{status}</p>

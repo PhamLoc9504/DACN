@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Pagination from '@/components/Pagination';
 import { supabase, type Tables } from '@/lib/supabaseClient';
 import Modal from '@/components/Modal';
@@ -67,6 +68,21 @@ export default function HangHoaPage() {
   const [openPrintLabel, setOpenPrintLabel] = useState(false);
   const [printItem, setPrintItem] = useState<HangHoaRow | null>(null);
   const [openQrSearch, setOpenQrSearch] = useState(false);
+
+  const searchParams = useSearchParams();
+
+  const urlQ = searchParams.get('q') || '';
+  const urlPageParam = searchParams.get('page') || '1';
+  const urlLimitParam = searchParams.get('limit') || '10';
+  const lowStockOnly = searchParams.get('lowStock');
+
+  useEffect(() => {
+    const urlPage = parseInt(urlPageParam, 10);
+    const urlLimit = parseInt(urlLimitParam, 10);
+    if (urlQ) setQ(urlQ);
+    if (Number.isFinite(urlPage) && urlPage > 0) setPage(urlPage);
+    if (Number.isFinite(urlLimit) && urlLimit > 0) setLimit(urlLimit);
+  }, [urlLimitParam, urlPageParam, urlQ]);
 
   // State quản lý form
   const empty: HangHoaRow = {
@@ -226,15 +242,29 @@ export default function HangHoaPage() {
 
   const filtered = useMemo(
     () =>
-      rows.filter((r) => {
+      rows
+        .filter((r) => {
         const byLoai = loai ? r.MaLoai === loai : true;
         const byStatus = (r as any).TrangThai ? (r as any).TrangThai !== 'Ngừng kinh doanh' : true;
         return byLoai && byStatus;
-      }),
-    [rows, loai]
+      })
+        .filter((r) => {
+          if (!lowStockOnly) return true;
+          return (r.SoLuongTon || 0) <= LOW_THRESHOLD;
+        }),
+    [rows, loai, lowStockOnly]
   );
 
   const lowStock = useMemo(() => rows.filter((r) => (r.SoLuongTon || 0) <= LOW_THRESHOLD), [rows]);
+
+  const loaiMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    (loaiList || []).forEach((l) => {
+      if (l?.MaLoai) map[l.MaLoai] = l.TenLoai || l.MaLoai;
+    });
+    return map;
+  }, [loaiList]);
+
   const totalValue = useMemo(() => 
     rows.reduce((sum, item) => sum + (item.DonGia || 0) * (item.SoLuongTon || 0), 0), 
     [rows]
@@ -712,7 +742,9 @@ export default function HangHoaPage() {
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
                           <Tag className="w-4 h-4 text-slate-400" />
-                          <span className="text-slate-700">{item.MaLoai}</span>
+                          <span className="text-slate-700">
+                            {item.MaLoai ? loaiMap[item.MaLoai] || item.MaLoai : 'Chưa có loại'}
+                          </span>
                         </div>
                       </td>
                       
