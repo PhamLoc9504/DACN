@@ -503,7 +503,7 @@ export default function Home() {
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
-                data={revView === "month" ? revenueData : revView === "day" ? dailyRevenue : yearlyRevenue}
+                data={revView === "month" ? revenueData : revView === "day" ? dailyRevenue : yearlyRevenue as any}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
                 <XAxis
