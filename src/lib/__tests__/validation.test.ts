@@ -37,7 +37,7 @@ describe('Validation Schemas', () => {
       const result = hangHoaSchema.safeParse(invalidData);
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.errors.some(e => e.path.includes('TenHH'))).toBe(true);
+        expect(result.error.issues.some(e => e.path.includes('TenHH'))).toBe(true);
       }
     });
 

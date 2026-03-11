@@ -62,9 +62,7 @@ export const hoaDonSchema = z.object({
   MaKH: z.string().optional().nullable(),
   MaNV: z.string().min(1, 'Mã nhân viên là bắt buộc'),
   TongTien: z.number().min(0, 'Tổng tiền phải lớn hơn hoặc bằng 0'),
-  TrangThai: z.enum(['Chưa thanh toán', 'Đã thanh toán', 'Đã hủy'], {
-    errorMap: () => ({ message: 'Trạng thái không hợp lệ' }),
-  }),
+  TrangThai: z.enum(['Chưa thanh toán', 'Đã thanh toán', 'Đã hủy']),
   HinhThucGiao: z.string().optional().nullable(),
   PhuongThucTT: z.string().optional().nullable(),
   SoPX: z.string().optional().nullable(),
@@ -139,7 +137,7 @@ export function validateWithSchema<T>(
   }
 
   const errors: Record<string, string> = {};
-  result.error.errors.forEach((err) => {
+  result.error.issues.forEach((err: any) => {
     const path = err.path.join('.');
     errors[path] = err.message;
   });

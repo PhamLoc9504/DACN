@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+// @ts-ignore - nodemailer types may not be available
 
 const host = process.env.SMTP_HOST;
 const port = process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : 587;
