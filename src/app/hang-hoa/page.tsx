@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Pagination from '@/components/Pagination';
 import { supabase, type Tables } from '@/lib/supabaseClient';
@@ -43,7 +43,7 @@ type HangHoaRow = Tables['HangHoa'] & {
   NgayHetHan?: string | null; 
 };
 
-export default function HangHoaPage() {
+function HangHoaPage() {
   // State quản lý dữ liệu
   const [rows, setRows] = useState<HangHoaRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1169,3 +1169,13 @@ export default function HangHoaPage() {
     </div>
   );
 }
+
+function HangHoaPageWrapper() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+      <HangHoaPage />
+    </Suspense>
+  );
+}
+
+export default HangHoaPageWrapper;
