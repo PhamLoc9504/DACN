@@ -517,7 +517,7 @@ export default function Home() {
                   tickFormatter={(v) => `₫${(v / 1000000).toFixed(0)}M`}
                 />
                 <Tooltip
-                  formatter={(value: number) => [`${value.toLocaleString("vi-VN")} ₫`, "Doanh thu"]}
+                  formatter={(value: any) => [`${Number(value).toLocaleString("vi-VN")} ₫`, "Doanh thu"]}
                   contentStyle={{
                     background: "white",
                     border: "1px solid #e5e7eb",
@@ -568,8 +568,8 @@ export default function Home() {
                     ))}
                   </Pie>
                   <Tooltip
-                    formatter={(value: number, name) => [
-                      `${value.toLocaleString("vi-VN")} ₫`,
+                    formatter={(value: any, name: any) => [
+                      `${Number(value).toLocaleString("vi-VN")} ₫`,
                       name,
                     ]}
                   />
@@ -611,8 +611,8 @@ export default function Home() {
                     tickFormatter={(v) => `₫${(v / 1000000).toFixed(0)}M`}
                   />
                   <Tooltip
-                    formatter={(value: number, _name, item) => [
-                      `${value.toLocaleString("vi-VN")} ₫`,
+                    formatter={(value: any, _name: any, item: any) => [
+                      `${Number(value).toLocaleString("vi-VN")} ₫`,
                       item?.dataKey === "nhap" ? "Nhập hàng" : "Xuất hàng",
                     ]}
                     labelFormatter={(label) => `Ngày ${label}`}
