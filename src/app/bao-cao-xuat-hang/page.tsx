@@ -216,7 +216,7 @@ export default function BaoCaoXuatHangPage() {
 											<CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
 											<XAxis dataKey="month" stroke="#94A3B8" />
 											<YAxis stroke="#94A3B8" tickFormatter={(v) => `${v / 1000000}M`} />
-											<Tooltip formatter={(value: number) => `${Number(value).toLocaleString('vi-VN')} ₫`} />
+											<Tooltip formatter={(value: any) => value ? `${Number(value).toLocaleString('vi-VN')} ₫` : ''} />
 											<Line type="monotone" dataKey="value" stroke="#0EA5E9" strokeWidth={2} dot={false} />
 										</LineChart>
 									</ResponsiveContainer>
@@ -232,7 +232,7 @@ export default function BaoCaoXuatHangPage() {
 											<CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
 											<XAxis dataKey="name" stroke="#94A3B8" />
 											<YAxis stroke="#94A3B8" tickFormatter={(v) => `${v / 1000000}M`} />
-											<Tooltip formatter={(value: number) => `${Number(value).toLocaleString('vi-VN')} ₫`} />
+											<Tooltip formatter={(value: any) => value ? `${Number(value).toLocaleString('vi-VN')} ₫` : ''} />
 											<Bar dataKey="value" fill="#22c55e" />
 										</BarChart>
 									</ResponsiveContainer>

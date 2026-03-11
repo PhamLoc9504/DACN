@@ -708,7 +708,7 @@ export default function ChamSocKhachHangPage() {
                                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
                                                 <XAxis dataKey="month" stroke="#6b7280" />
                                                 <YAxis stroke="#6b7280" tickFormatter={(v) => `${v / 1000000}M`} />
-                                                <Tooltip formatter={(value: number) => `${Number(value).toLocaleString('vi-VN')} ₫`} />
+                                                <Tooltip formatter={(value: any) => value ? `${Number(value).toLocaleString('vi-VN')} ₫` : ''} />
                                                 <Line type="monotone" dataKey="revenue" stroke="#6366f1" strokeWidth={2} dot={false} />
                                             </LineChart>
                                         </ResponsiveContainer>

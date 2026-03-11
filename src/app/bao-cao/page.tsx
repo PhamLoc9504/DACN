@@ -706,7 +706,7 @@ export default function BaoCaoPage() {
 													<CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#d9e0f3" />
 													<XAxis dataKey="month" stroke="#6b7aa6" />
 													<YAxis stroke="#6b7aa6" tickFormatter={(v) => `${v / 1000000}M`} />
-													<Tooltip formatter={(value: number) => `${Number(value).toLocaleString('vi-VN')} ₫`} contentStyle={{ borderRadius: 12, border: '#d9e0f3 solid 1px' }} />
+													<Tooltip formatter={(value: any) => value ? `${Number(value).toLocaleString('vi-VN')} ₫` : ''} contentStyle={{ borderRadius: 12, border: '#d9e0f3 solid 1px' }} />
 													<Line type="monotone" dataKey="value" stroke="#5f73c7" strokeWidth={2} dot={false} />
 												</LineChart>
 											</ResponsiveContainer>
@@ -722,7 +722,7 @@ export default function BaoCaoPage() {
 															<Cell key={`cell-${index}`} fill={['#5f73c7', '#7fa5ff', '#22c55e', '#f59e0b', '#38bdf8'][index % 5]} />
 														))}
 													</Pie>
-													<Tooltip formatter={(value: number) => `${Number(value).toLocaleString('vi-VN')} ₫`} contentStyle={{ borderRadius: 12, border: '#d9e0f3 solid 1px' }} />
+													<Tooltip formatter={(value: any) => value ? `${Number(value).toLocaleString('vi-VN')} ₫` : ''} contentStyle={{ borderRadius: 12, border: '#d9e0f3 solid 1px' }} />
 													<Legend />
 												</PieChart>
 											</ResponsiveContainer>
@@ -785,7 +785,7 @@ export default function BaoCaoPage() {
 													<CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#d9e0f3" />
 													<XAxis dataKey="month" stroke="#6b7aa6" />
 													<YAxis stroke="#6b7aa6" tickFormatter={(v) => `${v / 1000000}M`} />
-													<Tooltip formatter={(value: number) => `${Number(value).toLocaleString('vi-VN')} ₫`} contentStyle={{ borderRadius: 12, border: '#d9e0f3 solid 1px' }} />
+													<Tooltip formatter={(value: any) => value ? `${Number(value).toLocaleString('vi-VN')} ₫` : ''} contentStyle={{ borderRadius: 12, border: '#d9e0f3 solid 1px' }} />
 													<Line type="monotone" dataKey="value" stroke="#38bdf8" strokeWidth={2} dot={false} />
 												</LineChart>
 											</ResponsiveContainer>
@@ -799,7 +799,7 @@ export default function BaoCaoPage() {
 													<CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#d9e0f3" />
 													<XAxis dataKey="name" stroke="#6b7aa6" />
 													<YAxis stroke="#6b7aa6" tickFormatter={(v) => `${v / 1000000}M`} />
-													<Tooltip formatter={(value: number) => `${Number(value).toLocaleString('vi-VN')} ₫`} contentStyle={{ borderRadius: 12, border: '#d9e0f3 solid 1px' }} />
+													<Tooltip formatter={(value: any) => value ? `${Number(value).toLocaleString('vi-VN')} ₫` : ''} contentStyle={{ borderRadius: 12, border: '#d9e0f3 solid 1px' }} />
 													<Bar dataKey="value" fill="#5f73c7" radius={[8, 8, 8, 8]} />
 												</BarChart>
 											</ResponsiveContainer>
@@ -864,7 +864,7 @@ export default function BaoCaoPage() {
 												<CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#d9e0f3" />
 												<XAxis dataKey="month" stroke="#6b7aa6" />
 												<YAxis stroke="#6b7aa6" tickFormatter={(v) => `${v / 1000000}M`} />
-												<Tooltip formatter={(value: number) => `${Number(value).toLocaleString('vi-VN')} ₫`} contentStyle={{ borderRadius: 12, border: '#d9e0f3 solid 1px' }} />
+												<Tooltip formatter={(value: any) => value ? `${Number(value).toLocaleString('vi-VN')} ₫` : ''} contentStyle={{ borderRadius: 12, border: '#d9e0f3 solid 1px' }} />
 												<Line type="monotone" dataKey="revenue" stroke="#22c55e" strokeWidth={2} dot={false} />
 											</LineChart>
 										</ResponsiveContainer>
