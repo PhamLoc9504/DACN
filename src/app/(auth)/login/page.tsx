@@ -48,6 +48,33 @@ function LoginContent() {
 		}
 	}
 
+	async function handleForgotPassword() {
+		if (!username) {
+			setError('Vui lòng nhập email trước khi reset mật khẩu');
+			return;
+		}
+
+		setLoading(true);
+		setError(null);
+		try {
+			const res = await fetch('/api/reset-password', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ email: username }),
+			});
+			const body = await res.json();
+			if (!res.ok) {
+				setError(body.error || 'Reset mật khẩu thất bại');
+				return;
+			}
+			setError('Mật khẩu đã được reset về: 88888888');
+		} catch (err: any) {
+			setError(err.message || 'Reset mật khẩu thất bại');
+		} finally {
+			setLoading(false);
+		}
+	}
+
 	return (
 		<div className="min-h-screen bg-gradient-to-br from-[#f2f4fb] via-[#e6ebf7] to-[#dbe1f0] flex items-center justify-center px-4">
 			<div className="w-full max-w-sm bg-[#eef1f8]/85 backdrop-blur-xl rounded-[32px] shadow-[24px_24px_48px_-28px_rgba(79,90,119,0.45),-18px_-18px_36px_rgba(255,255,255,0.9)] border border-white/60 px-8 py-10">
@@ -103,6 +130,17 @@ function LoginContent() {
 						{loading ? 'Đang đăng nhập...' : 'Sign In'}
 					</button>
 				</form>
+
+				<div className="mt-4 text-center">
+					<button
+						type="button"
+						onClick={handleForgotPassword}
+						className="text-[#7587d2] text-sm hover:underline"
+						disabled={loading}
+					>
+						Quên mật khẩu?
+					</button>
+				</div>
 
 				<div className="mt-6 text-sm text-center text-[#6b7aa6]">
 					Don’t have an account?{' '}
