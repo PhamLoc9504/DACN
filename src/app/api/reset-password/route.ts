@@ -3,7 +3,14 @@ import { getServerSupabase } from '@/lib/supabaseClient';
 
 export async function POST(req: Request) {
   try {
-    const { email } = await req.json();
+    // Kiểm tra xem request có body không trước khi parse
+    const text = await req.text();
+    if (!text) {
+      return NextResponse.json({ error: 'Body không được để trống' }, { status: 400 });
+    }
+    
+    const body = JSON.parse(text);
+    const { email } = body;
 
     if (!email) {
       return NextResponse.json({ error: 'Email là bắt buộc' }, { status: 400 });
@@ -38,6 +45,7 @@ export async function POST(req: Request) {
     });
 
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Lỗi server' }, { status: 500 });
+    console.error("Lỗi API reset-password:", error); // Xem log ở terminal để biết lỗi thật
+    return NextResponse.json({ error: 'Lỗi định dạng dữ liệu' }, { status: 500 });
   }
 }

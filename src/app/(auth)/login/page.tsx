@@ -11,15 +11,6 @@ function LoginContent() {
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
-	// Kiểm tra thông báo lỗi từ query params (ví dụ: ngoài giờ làm việc)
-	useEffect(() => {
-		const errorParam = searchParams.get('error');
-		const messageParam = searchParams.get('message');
-		if (errorParam === 'outside_working_hours' && messageParam) {
-			setError(messageParam);
-		}
-	}, [searchParams]);
-
 	async function handleLogin(e: React.FormEvent) {
 		e.preventDefault();
 		setError(null);
@@ -112,13 +103,7 @@ function LoginContent() {
 					</div>
 
 					{error && (
-						<div
-							className={`p-3 rounded-2xl text-sm text-center ${
-								error.includes('giờ làm việc') || error.includes('hoạt động')
-									? 'bg-amber-50 border border-amber-200 text-amber-800'
-									: 'bg-red-50 border border-red-200 text-red-600'
-							}`}
-						>
+						<div className="p-3 rounded-2xl text-sm text-center bg-red-50 border border-red-200 text-red-600">
 							{error}
 						</div>
 					)}
