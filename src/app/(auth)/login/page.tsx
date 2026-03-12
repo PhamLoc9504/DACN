@@ -62,6 +62,7 @@ function LoginContent() {
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ email: username }),
 			});
+			
 			const body = await res.json();
 			if (!res.ok) {
 				setError(body.error || 'Reset mật khẩu thất bại');
