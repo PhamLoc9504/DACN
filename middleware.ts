@@ -11,11 +11,11 @@ const PUBLIC_PATHS = [
 	'/chinh-sach-cookie',
 ];
 
-// Cấu hình giờ làm việc (có thể lấy từ env hoặc database)
+// Cấu hình giờ làm việc (đã tắt)
 const WORKING_HOURS = {
 	start: parseInt(process.env.WORKING_HOURS_START || '8', 10), // 8:00
 	end: parseInt(process.env.WORKING_HOURS_END || '17', 10), // 17:00
-	enabled: process.env.WORKING_HOURS_ENABLED !== 'false', // Mặc định bật
+	enabled: false, // Đã tắt kiểm soát giờ làm việc
 };
 
 // Vai trò được phép truy cập ngoài giờ làm việc
@@ -65,21 +65,21 @@ export function middleware(req: NextRequest) {
 		return NextResponse.redirect(url);
 	}
 	
-	// Kiểm tra giờ làm việc
+	// Kiểm tra giờ làm việc (đã tắt)
 	const session = decodeSession(sessionCookie);
 	if (session?.vaiTro && BYPASS_ROLES.includes(session.vaiTro)) {
 		// Admin và Quản lý được phép truy cập mọi lúc
 		return NextResponse.next();
 	}
 	
-	// Kiểm tra nếu ngoài giờ làm việc
-	if (!isWithinWorkingHours()) {
-		const url = req.nextUrl.clone();
-		url.pathname = '/login';
-		url.searchParams.set('error', 'outside_working_hours');
-		url.searchParams.set('message', `Hệ thống chỉ hoạt động từ ${WORKING_HOURS.start}:00 đến ${WORKING_HOURS.end}:00, từ thứ 2 đến thứ 6. Vui lòng liên hệ Admin để được hỗ trợ.`);
-		return NextResponse.redirect(url);
-	}
+	// Đã tắt kiểm soát giờ làm việc - cho phép truy cập mọi lúc
+	// if (!isWithinWorkingHours()) {
+	// 	const url = req.nextUrl.clone();
+	// 	url.pathname = '/login';
+	// 	url.searchParams.set('error', 'outside_working_hours');
+	// 	url.searchParams.set('message', `Hệ thống chỉ hoạt động từ ${WORKING_HOURS.start}:00 đến ${WORKING_HOURS.end}:00, từ thứ 2 đến thứ 6. Vui lòng liên hệ Admin để được hỗ trợ.`);
+	// 	return NextResponse.redirect(url);
+	// }
 	
 	return NextResponse.next();
 }
