@@ -134,6 +134,39 @@ function LoginContent() {
 						Sign up
 					</a>
 				</div>
+
+				{/* Demo Account Info */}
+				<div className="mt-4 p-4 bg-blue-50 rounded-xl border border-blue-200">
+					<div className="flex items-center gap-2 mb-2">
+						<span className="text-blue-600 text-sm">🔑</span>
+						<h3 className="text-sm font-semibold text-blue-800">Tài khoản demo</h3>
+					</div>
+					<div className="space-y-1 text-xs text-gray-700">
+						<div className="flex justify-between">
+							<span className="font-medium">Email:</span>
+							<button
+								type="button"
+								onClick={() => setUsername('minhloc090504@gmail.com')}
+								className="text-blue-600 hover:underline ml-2"
+							>
+								minhloc090504@gmail.com
+							</button>
+						</div>
+						<div className="flex justify-between">
+							<span className="font-medium">Mật khẩu:</span>
+							<button
+								type="button"
+								onClick={() => setPassword('loc090504')}
+								className="text-blue-600 hover:underline ml-2"
+							>
+								loc090504
+							</button>
+						</div>
+					</div>
+					<p className="text-xs text-blue-600 mt-2 italic">
+						Click vào tài khoản/mật khẩu để điền tự động
+					</p>
+				</div>
 			</div>
 		</div>
 	);
